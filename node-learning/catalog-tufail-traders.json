@@ -1,0 +1,220 @@
+{
+  "businessId": "22af2885-7a6e-4ad1-84c4-e0ddeba9cb8c",
+  "businessName": "Tufail Traders",
+  "categories": [
+    {
+      "name": "General Items",
+      "products": [
+        { "name": "Elfy", "purchasePrice": 18, "salePrice": 25, "printRate": 28, "openingStock": 40, "minStock": 8 },
+        { "name": "Metro Million Small", "purchasePrice": 22, "salePrice": 32, "printRate": 35, "openingStock": 36, "minStock": 10 },
+        { "name": "Metro Million Large", "purchasePrice": 38, "salePrice": 52, "printRate": 55, "openingStock": 24, "minStock": 8 },
+        { "name": "3DX", "purchasePrice": 15, "salePrice": 22, "printRate": 25, "openingStock": 50, "minStock": 10 },
+        { "name": "Blesso", "purchasePrice": 20, "salePrice": 30, "printRate": 32, "openingStock": 30, "minStock": 8 },
+        { "name": "Urgent Fical", "purchasePrice": 12, "salePrice": 18, "printRate": 20, "openingStock": 48, "minStock": 10 },
+        { "name": "GP Fical", "purchasePrice": 14, "salePrice": 22, "printRate": 25, "openingStock": 40, "minStock": 8 },
+        { "name": "Parly Black", "purchasePrice": 28, "salePrice": 40, "printRate": 45, "openingStock": 24, "minStock": 6 },
+        { "name": "Oil", "purchasePrice": 45, "salePrice": 60, "printRate": 65, "openingStock": 20, "minStock": 5 },
+        { "name": "Tiger", "purchasePrice": 25, "salePrice": 35, "printRate": 38, "openingStock": 36, "minStock": 8 },
+        { "name": "Chep Stick", "purchasePrice": 8, "salePrice": 12, "printRate": 15, "openingStock": 80, "minStock": 15 },
+        { "name": "Toshiba AA", "purchasePrice": 35, "salePrice": 50, "printRate": 55, "openingStock": 40, "minStock": 10 },
+        { "name": "Toshiba AAA", "purchasePrice": 32, "salePrice": 48, "printRate": 52, "openingStock": 40, "minStock": 10 },
+        { "name": "Hygiene", "purchasePrice": 40, "salePrice": 58, "printRate": 62, "openingStock": 20, "minStock": 6 },
+        { "name": "WRJ Medium", "purchasePrice": 30, "salePrice": 42, "printRate": 45, "openingStock": 24, "minStock": 6 },
+        { "name": "WRJ Large", "purchasePrice": 48, "salePrice": 65, "printRate": 70, "openingStock": 18, "minStock": 5 },
+        { "name": "Prima Box", "purchasePrice": 85, "salePrice": 110, "printRate": 120, "openingStock": 12, "minStock": 4 },
+        { "name": "Prima Shashay", "purchasePrice": 28, "salePrice": 40, "printRate": 45, "openingStock": 24, "minStock": 6 }
+      ]
+    },
+    {
+      "name": "Tape",
+      "products": [
+        { "name": "Shisha Tape", "purchasePrice": 28, "salePrice": 40, "printRate": 45, "openingStock": 30, "minStock": 8 },
+        { "name": "Osaka Tape", "purchasePrice": 35, "salePrice": 50, "printRate": 55, "openingStock": 24, "minStock": 6 }
+      ]
+    },
+    {
+      "name": "Cleaning / Household",
+      "products": [
+        { "name": "Scoth Brite", "purchasePrice": 18, "salePrice": 28, "printRate": 30, "openingStock": 40, "minStock": 10 },
+        { "name": "Sani Plas", "purchasePrice": 45, "salePrice": 65, "printRate": 70, "openingStock": 20, "minStock": 5 },
+        { "name": "Moom Bati", "purchasePrice": 12, "salePrice": 18, "printRate": 20, "openingStock": 60, "minStock": 12 }
+      ]
+    },
+    {
+      "name": "Stationery",
+      "products": [
+        { "name": "Arco Sada Letter", "purchasePrice": 22, "salePrice": 32, "printRate": 35, "openingStock": 40, "minStock": 10 },
+        { "name": "Arco Header Letter", "purchasePrice": 28, "salePrice": 40, "printRate": 45, "openingStock": 36, "minStock": 10 },
+        { "name": "Arco Grari Letter", "purchasePrice": 25, "salePrice": 38, "printRate": 42, "openingStock": 30, "minStock": 8 },
+        { "name": "Safety Pin", "purchasePrice": 10, "salePrice": 16, "printRate": 18, "openingStock": 80, "minStock": 15 },
+        { "name": "Champion Pin", "purchasePrice": 8, "salePrice": 14, "printRate": 16, "openingStock": 70, "minStock": 15 }
+      ]
+    },
+    {
+      "name": "Beauty Accessories",
+      "products": [
+        { "name": "Neelam Kanghi", "purchasePrice": 15, "salePrice": 25, "printRate": 28, "openingStock": 40, "minStock": 8 },
+        { "name": "Saira 5 Wali", "purchasePrice": 35, "salePrice": 50, "printRate": 55, "openingStock": 24, "minStock": 6 },
+        { "name": "Saira 10 Wali", "purchasePrice": 55, "salePrice": 75, "printRate": 80, "openingStock": 18, "minStock": 5 },
+        { "name": "Blue 2", "purchasePrice": 20, "salePrice": 30, "printRate": 32, "openingStock": 36, "minStock": 8 },
+        { "name": "Blue 3", "purchasePrice": 28, "salePrice": 42, "printRate": 45, "openingStock": 30, "minStock": 8 },
+        { "name": "Jali", "purchasePrice": 12, "salePrice": 20, "printRate": 22, "openingStock": 50, "minStock": 10 }
+      ]
+    },
+    {
+      "name": "Baby Items",
+      "products": [
+        { "name": "Shield Nipple", "purchasePrice": 22, "salePrice": 35, "printRate": 38, "openingStock": 30, "minStock": 8 },
+        { "name": "Chusni", "purchasePrice": 18, "salePrice": 28, "printRate": 32, "openingStock": 36, "minStock": 8 }
+      ]
+    },
+    {
+      "name": "Mehndi",
+      "products": [
+        { "name": "Laila Mehndi", "purchasePrice": 18, "salePrice": 28, "printRate": 32, "openingStock": 40, "minStock": 10 }
+      ]
+    },
+    {
+      "name": "Manjan",
+      "products": [
+        { "name": "Hussain Manjan Small", "purchasePrice": 20, "salePrice": 32, "printRate": 35, "openingStock": 30, "minStock": 8 },
+        { "name": "Hussain Manjan Large", "purchasePrice": 35, "salePrice": 50, "printRate": 55, "openingStock": 20, "minStock": 6 }
+      ]
+    },
+    {
+      "name": "Health / Medicine",
+      "products": [
+        { "name": "Joshanda", "purchasePrice": 25, "salePrice": 38, "printRate": 42, "openingStock": 40, "minStock": 10 },
+        { "name": "Whiting Cap", "purchasePrice": 30, "salePrice": 45, "printRate": 50, "openingStock": 24, "minStock": 6 },
+        { "name": "Vitamin E Cap", "purchasePrice": 40, "salePrice": 60, "printRate": 65, "openingStock": 24, "minStock": 6 },
+        { "name": "ORS", "purchasePrice": 18, "salePrice": 28, "printRate": 30, "openingStock": 48, "minStock": 12 }
+      ]
+    },
+    {
+      "name": "Tissue",
+      "products": [
+        { "name": "Everyday Tissue", "purchasePrice": 55, "salePrice": 75, "printRate": 80, "openingStock": 24, "minStock": 6 },
+        { "name": "Camera Tissue Gool", "purchasePrice": 70, "salePrice": 95, "printRate": 100, "openingStock": 18, "minStock": 5 },
+        { "name": "Pop-up Tissue", "purchasePrice": 85, "salePrice": 115, "printRate": 120, "openingStock": 18, "minStock": 5 },
+        { "name": "Party Pack White", "purchasePrice": 140, "salePrice": 180, "printRate": 190, "openingStock": 12, "minStock": 4 },
+        { "name": "Party Pack Pink", "purchasePrice": 145, "salePrice": 185, "printRate": 195, "openingStock": 12, "minStock": 4 },
+        { "name": "Maxob Tissue", "purchasePrice": 60, "salePrice": 85, "printRate": 90, "openingStock": 20, "minStock": 6 }
+      ]
+    },
+    {
+      "name": "Color / Hair Color",
+      "products": [
+        { "name": "Olevia", "purchasePrice": 95, "salePrice": 130, "printRate": 140, "openingStock": 18, "minStock": 5 },
+        { "name": "Retha", "purchasePrice": 80, "salePrice": 110, "printRate": 120, "openingStock": 16, "minStock": 5 },
+        { "name": "Samsol Small", "purchasePrice": 120, "salePrice": 160, "printRate": 170, "openingStock": 14, "minStock": 4 },
+        { "name": "Samsol Large", "purchasePrice": 180, "salePrice": 240, "printRate": 250, "openingStock": 10, "minStock": 3 },
+        { "name": "Godrage Shaheen", "purchasePrice": 150, "salePrice": 200, "printRate": 210, "openingStock": 12, "minStock": 4 },
+        { "name": "Wajee Color", "purchasePrice": 90, "salePrice": 125, "printRate": 135, "openingStock": 16, "minStock": 5 },
+        { "name": "Bigen", "purchasePrice": 280, "salePrice": 360, "printRate": 380, "openingStock": 8, "minStock": 3 },
+        { "name": "Garnier", "purchasePrice": 320, "salePrice": 420, "printRate": 440, "openingStock": 8, "minStock": 3 }
+      ]
+    },
+    {
+      "name": "Lotion",
+      "products": [
+        { "name": "Olevia Lotion Small", "purchasePrice": 85, "salePrice": 120, "printRate": 130, "openingStock": 20, "minStock": 6 },
+        { "name": "Olevia Lotion Large", "purchasePrice": 150, "salePrice": 200, "printRate": 210, "openingStock": 12, "minStock": 4 },
+        { "name": "Ponds Lotion Small", "purchasePrice": 110, "salePrice": 150, "printRate": 160, "openingStock": 18, "minStock": 5 },
+        { "name": "Ponds Lotion Large", "purchasePrice": 190, "salePrice": 250, "printRate": 265, "openingStock": 10, "minStock": 3 }
+      ]
+    },
+    {
+      "name": "Soap",
+      "products": [
+        { "name": "Tibet Soap Small", "purchasePrice": 28, "salePrice": 40, "printRate": 45, "openingStock": 48, "minStock": 12 },
+        { "name": "Tibet Soap Medium", "purchasePrice": 38, "salePrice": 52, "printRate": 55, "openingStock": 36, "minStock": 10 },
+        { "name": "Tibet Soap Large", "purchasePrice": 52, "salePrice": 70, "printRate": 75, "openingStock": 24, "minStock": 8 },
+        { "name": "Classic Tibet Soap", "purchasePrice": 45, "salePrice": 62, "printRate": 68, "openingStock": 30, "minStock": 8 },
+        { "name": "Sohana Soap", "purchasePrice": 32, "salePrice": 45, "printRate": 48, "openingStock": 36, "minStock": 10 },
+        { "name": "Safeguard Soap", "purchasePrice": 55, "salePrice": 75, "printRate": 80, "openingStock": 24, "minStock": 6 },
+        { "name": "Pamolive Soap", "purchasePrice": 48, "salePrice": 68, "printRate": 72, "openingStock": 24, "minStock": 6 },
+        { "name": "Bio Cos Soap", "purchasePrice": 35, "salePrice": 50, "printRate": 55, "openingStock": 30, "minStock": 8 },
+        { "name": "Capri Soap", "purchasePrice": 42, "salePrice": 60, "printRate": 65, "openingStock": 24, "minStock": 6 },
+        { "name": "Sufi Classic Soap", "purchasePrice": 30, "salePrice": 42, "printRate": 45, "openingStock": 36, "minStock": 10 }
+      ]
+    },
+    {
+      "name": "Toothpaste",
+      "products": [
+        { "name": "Dr Paste Small", "purchasePrice": 45, "salePrice": 65, "printRate": 70, "openingStock": 24, "minStock": 6 },
+        { "name": "Sensodyne", "purchasePrice": 220, "salePrice": 290, "printRate": 310, "openingStock": 12, "minStock": 4 },
+        { "name": "Medicame", "purchasePrice": 55, "salePrice": 78, "printRate": 85, "openingStock": 20, "minStock": 6 }
+      ]
+    },
+    {
+      "name": "Face Wash",
+      "products": [
+        { "name": "Ponds Wash Small", "purchasePrice": 85, "salePrice": 120, "printRate": 130, "openingStock": 20, "minStock": 6 },
+        { "name": "Ponds Wash Large", "purchasePrice": 150, "salePrice": 200, "printRate": 215, "openingStock": 12, "minStock": 4 },
+        { "name": "Lovely Wash Small", "purchasePrice": 70, "salePrice": 100, "printRate": 110, "openingStock": 20, "minStock": 6 },
+        { "name": "Lovely Wash Large", "purchasePrice": 120, "salePrice": 165, "printRate": 175, "openingStock": 14, "minStock": 4 },
+        { "name": "Hmalia Wash", "purchasePrice": 95, "salePrice": 135, "printRate": 145, "openingStock": 16, "minStock": 5 },
+        { "name": "GP Wash", "purchasePrice": 80, "salePrice": 115, "printRate": 125, "openingStock": 18, "minStock": 5 }
+      ]
+    },
+    {
+      "name": "Powder",
+      "products": [
+        { "name": "Black Cat", "purchasePrice": 45, "salePrice": 65, "printRate": 70, "openingStock": 24, "minStock": 6 },
+        { "name": "Madora", "purchasePrice": 50, "salePrice": 72, "printRate": 78, "openingStock": 20, "minStock": 6 },
+        { "name": "Black Beauty", "purchasePrice": 42, "salePrice": 60, "printRate": 65, "openingStock": 24, "minStock": 6 },
+        { "name": "Tibet Powder", "purchasePrice": 55, "salePrice": 78, "printRate": 85, "openingStock": 20, "minStock": 6 },
+        { "name": "Go Rash", "purchasePrice": 38, "salePrice": 55, "printRate": 60, "openingStock": 24, "minStock": 6 },
+        { "name": "Prickly Heat Small", "purchasePrice": 48, "salePrice": 70, "printRate": 75, "openingStock": 20, "minStock": 6 },
+        { "name": "Prickly Heat Large", "purchasePrice": 85, "salePrice": 110, "printRate": 120, "openingStock": 12, "minStock": 4 }
+      ]
+    },
+    {
+      "name": "Cream / Face Products",
+      "products": [
+        { "name": "Tibet Snow", "purchasePrice": 55, "salePrice": 78, "printRate": 85, "openingStock": 24, "minStock": 6 },
+        { "name": "Parly Gold", "purchasePrice": 70, "salePrice": 100, "printRate": 110, "openingStock": 18, "minStock": 5 },
+        { "name": "GP Cream", "purchasePrice": 65, "salePrice": 95, "printRate": 105, "openingStock": 20, "minStock": 6 },
+        { "name": "Faiza Cream", "purchasePrice": 80, "salePrice": 115, "printRate": 125, "openingStock": 16, "minStock": 5 },
+        { "name": "Sandal Cream", "purchasePrice": 60, "salePrice": 88, "printRate": 95, "openingStock": 18, "minStock": 5 },
+        { "name": "White Gold", "purchasePrice": 90, "salePrice": 130, "printRate": 140, "openingStock": 14, "minStock": 4 },
+        { "name": "Archi", "purchasePrice": 75, "salePrice": 110, "printRate": 120, "openingStock": 16, "minStock": 5 },
+        { "name": "Mena", "purchasePrice": 50, "salePrice": 75, "printRate": 80, "openingStock": 24, "minStock": 6 },
+        { "name": "Aloe Vera Jar", "purchasePrice": 95, "salePrice": 140, "printRate": 150, "openingStock": 12, "minStock": 4 },
+        { "name": "Archi Cap", "purchasePrice": 40, "salePrice": 60, "printRate": 65, "openingStock": 24, "minStock": 6 },
+        { "name": "GP Serum", "purchasePrice": 110, "salePrice": 160, "printRate": 170, "openingStock": 12, "minStock": 4 },
+        { "name": "Face Fresh", "purchasePrice": 48, "salePrice": 72, "printRate": 78, "openingStock": 20, "minStock": 6 },
+        { "name": "Bareera Gold", "purchasePrice": 85, "salePrice": 125, "printRate": 135, "openingStock": 14, "minStock": 4 },
+        { "name": "Lovely Tube Small", "purchasePrice": 55, "salePrice": 80, "printRate": 88, "openingStock": 20, "minStock": 6 },
+        { "name": "Lovely Tube Large", "purchasePrice": 95, "salePrice": 135, "printRate": 145, "openingStock": 14, "minStock": 4 },
+        { "name": "Lovely Jar", "purchasePrice": 120, "salePrice": 170, "printRate": 180, "openingStock": 10, "minStock": 3 },
+        { "name": "Bio Cos Cream", "purchasePrice": 70, "salePrice": 105, "printRate": 115, "openingStock": 16, "minStock": 5 },
+        { "name": "Bio Cos Serum", "purchasePrice": 100, "salePrice": 150, "printRate": 160, "openingStock": 12, "minStock": 4 }
+      ]
+    },
+    {
+      "name": "Condom",
+      "products": [
+        { "name": "Sathi", "purchasePrice": 28, "salePrice": 42, "printRate": 45, "openingStock": 36, "minStock": 10 },
+        { "name": "Josh", "purchasePrice": 32, "salePrice": 48, "printRate": 52, "openingStock": 30, "minStock": 8 },
+        { "name": "Touch Green Small", "purchasePrice": 40, "salePrice": 60, "printRate": 65, "openingStock": 24, "minStock": 6 },
+        { "name": "Touch Green Large", "purchasePrice": 65, "salePrice": 90, "printRate": 95, "openingStock": 16, "minStock": 5 }
+      ]
+    },
+    {
+      "name": "Shoe Care",
+      "products": [
+        { "name": "Show Polish", "purchasePrice": 42, "salePrice": 62, "printRate": 68, "openingStock": 24, "minStock": 6 }
+      ]
+    },
+    {
+      "name": "Food / Grocery",
+      "products": [
+        { "name": "Qasori Puri", "purchasePrice": 55, "salePrice": 78, "printRate": 85, "openingStock": 20, "minStock": 6 },
+        { "name": "National Jam Small", "purchasePrice": 85, "salePrice": 115, "printRate": 125, "openingStock": 16, "minStock": 5 },
+        { "name": "National Jam Large", "purchasePrice": 150, "salePrice": 200, "printRate": 215, "openingStock": 10, "minStock": 3 },
+        { "name": "GMSA", "purchasePrice": 40, "salePrice": 58, "printRate": 62, "openingStock": 24, "minStock": 6 }
+      ]
+    }
+  ]
+}

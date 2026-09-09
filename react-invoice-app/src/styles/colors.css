@@ -1,0 +1,61 @@
+:root {
+  /* Canvas */
+  --color-bg: #f4f1ea;
+  --color-bg-mist: #e7efe8;
+  --color-bg-glow: #efe6d6;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7f5f0;
+  --color-surface-3: #eeeae2;
+  --color-input: #f7f5f0;
+
+  /* Sidebar (dark contrast) */
+  --sidebar-width: 272px;
+  --sidebar-width-collapsed: 84px;
+  --color-sidebar: #1a2420;
+  --color-sidebar-border: #2c3b35;
+  --color-sidebar-active: rgba(45, 106, 86, 0.28);
+  --color-sidebar-active-border: #3d8f72;
+  --color-on-sidebar: #e7eeea;
+  --color-on-sidebar-muted: #9aada5;
+
+  /* Text */
+  --color-text: #1c2320;
+  --color-text-muted: #5c6b64;
+  --color-text-subtle: #8a958f;
+  --color-text-on-primary: #ffffff;
+  --color-placeholder: #8a958f;
+
+  /* Brand */
+  --color-primary: #2d6a56;
+  --color-primary-hover: #245847;
+  --color-primary-pressed: #1c4638;
+  --color-primary-soft: rgba(45, 106, 86, 0.12);
+  --color-accent: #b08a3c;
+  --color-accent-soft: rgba(176, 138, 60, 0.14);
+  --color-accent-bright: #f0d48a;
+
+  /* Status */
+  --color-paid: #2d6a56;
+  --color-paid-soft: rgba(45, 106, 86, 0.12);
+  --color-pending: #c27a2c;
+  --color-pending-soft: rgba(194, 122, 44, 0.14);
+  --color-draft: #6b7280;
+  --color-draft-soft: rgba(107, 114, 128, 0.12);
+  --color-danger: #c23b3b;
+  --color-danger-hover: #a52f2f;
+  --color-danger-soft: rgba(194, 59, 59, 0.12);
+  --color-edit: #e8d5a3;
+  --color-edit-text: #3a2d08;
+
+  /* Borders / overlays */
+  --color-border: #e4dfd4;
+  --color-border-strong: #d0c9b8;
+  --color-overlay: rgba(26, 36, 32, 0.48);
+  --color-white: #ffffff;
+  --color-black: #141918;
+
+  /* Shadows */
+  --shadow-card: 0 8px 24px rgba(28, 35, 32, 0.06);
+  --shadow-hover: 0 16px 36px rgba(45, 106, 86, 0.1);
+  --shadow-btn: 0 10px 20px rgba(45, 106, 86, 0.22);
+}

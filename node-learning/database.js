@@ -38,10 +38,10 @@ async function createUniqueSlug(db, name, { session, excludeId } = {}) {
   return slug;
 }
 
-async function nextTenantId(db, collectionName, businessId) {
+async function nextTenantId(db, collectionName, businessId, { session } = {}) {
   const lastRecord = await db
     .collection(collectionName)
-    .find({ businessId })
+    .find({ businessId }, session ? { session } : {})
     .sort({ id: -1 })
     .limit(1)
     .toArray();

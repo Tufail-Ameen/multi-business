@@ -174,7 +174,9 @@ async function appendLedgerEntry(
   const balanceAfter = previousBalance + creditAmt - debitAmt;
   const amount = creditAmt > 0 ? creditAmt : debitAmt;
 
-  const entryId = await nextTenantId(db, "supplier_ledger_entries", businessId);
+  const entryId = await nextTenantId(db, "supplier_ledger_entries", businessId, {
+    session,
+  });
 
   const entry = {
     id: entryId,

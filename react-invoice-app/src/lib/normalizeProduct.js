@@ -22,7 +22,7 @@ export function normalizeProduct(product) {
     product.salePrice ??
     product.sale_price ??
     product.price ??
-    null;
+    printRate;
   const purchasePrice =
     product.purchasePrice ?? product.purchase_price ?? product.tpRate ?? null;
   const currentStock =

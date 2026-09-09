@@ -24,6 +24,7 @@ const { registerTeamRoutes } = require("./team-routes");
 const { registerCatalogRoutes } = require("./catalog-routes");
 const { registerPurchaseRoutes } = require("./purchase-routes");
 const { registerRateListRoutes } = require("./rate-list-routes");
+const { registerInvoiceRoutes } = require("./invoice-routes");
 
 class AppError extends Error {
   constructor(status, code, message, details = {}) {
@@ -1180,6 +1181,16 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
   });
 
   registerPurchaseRoutes({
+    app,
+    db,
+    mongoClient,
+    AppError,
+    tenantRoute,
+    requirePermission,
+    tenantScope,
+  });
+
+  registerInvoiceRoutes({
     app,
     db,
     mongoClient,

@@ -3,7 +3,7 @@
   "private": true,
   "description": "Run POS and ecommerce frontend + backend from one folder",
   "scripts": {
-    "dev": "concurrently -k -n backend,frontend -c blue,green \"npm run dev --prefix node-learning\" \"wait-on tcp:127.0.0.1:5001 && npm start --prefix react-invoice-app\"",
+    "dev": "concurrently -k -n backend,frontend -c blue,green \"npm start --prefix node-learning\" \"wait-on tcp:127.0.0.1:5001 && npm start --prefix react-invoice-app\"",
     "dev:ecommerce": "concurrently -n api,web -c blue,green \"npm run dev:ecommerce --prefix node-learning\" \"npm run dev --prefix react-invoice-app/ecommerce\"",
     "install:all": "npm install --prefix node-learning && npm install --prefix react-invoice-app && npm install --prefix react-invoice-app/ecommerce"
   },

@@ -422,7 +422,9 @@ async function confirmPurchaseInSession(
 
     await db.collection("supplier_price_history").insertOne(
       {
-        id: await nextTenantId(db, "supplier_price_history", businessId),
+        id: await nextTenantId(db, "supplier_price_history", businessId, {
+          session,
+        }),
         businessId,
         supplierId: supplier.id,
         productId: item.productId,
@@ -896,7 +898,9 @@ function registerPurchaseRoutes({
             ledgerEntry = entry;
 
             payment = {
-              id: await nextTenantId(db, "supplier_payments", req.tenant.businessId),
+              id: await nextTenantId(db, "supplier_payments", req.tenant.businessId, {
+                session,
+              }),
               businessId: req.tenant.businessId,
               supplierId,
               amount: toMoney(amount),

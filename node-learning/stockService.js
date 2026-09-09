@@ -263,7 +263,8 @@ async function applyMovement(
   const movementId = await nextTenantId(
     db,
     "inventory_movements",
-    businessId
+    businessId,
+    { session }
   );
 
   const movement = {

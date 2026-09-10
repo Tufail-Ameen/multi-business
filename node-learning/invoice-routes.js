@@ -126,6 +126,7 @@ function billFromSnapshot(business, settings) {
     city: business.city || settings.city || "",
     code: business.postalCode || business.code || settings.postalCode || "",
     country: business.country || settings.country || "",
+    phone: business.phone || settings.phone || "",
   };
 }
 

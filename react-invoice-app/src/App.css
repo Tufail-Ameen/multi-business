@@ -3269,6 +3269,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin: 0 auto;
 }
 
+.invoice-doc:has(.invoice-slip) {
+  max-width: 760px;
+}
+
 .invoice-doc-nav {
   display: flex;
   flex-wrap: wrap;
@@ -3578,88 +3582,274 @@ a.invoice-doc-client:hover {
 
 .invoice-slip {
   background: var(--color-surface);
+  border-radius: 10px;
 }
 
 .invoice-slip-letterhead {
-  padding: 22px 22px 16px;
-  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 20px;
+  padding: 16px 18px 12px;
+  text-align: left;
   background: var(--color-surface);
-  border-bottom: 2px solid var(--color-primary);
-  box-shadow: 0 3px 0 var(--color-surface), 0 5px 0 var(--color-primary);
+  position: relative;
+  box-shadow: none;
+  border-bottom: 0;
+}
+
+.invoice-slip-letterhead::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--color-primary) 0 78%,
+    var(--color-accent) 78% 100%
+  );
+}
+
+.invoice-slip-brand-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.invoice-slip-mark {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .invoice-slip-brand {
   margin: 0;
-  font-size: 1.45rem;
+  font-size: 1.2rem;
   font-weight: 800;
   letter-spacing: -0.04em;
-  color: var(--color-primary);
+  line-height: 1.15;
+  color: var(--color-text);
 }
 
 .invoice-slip-brand-meta {
-  margin: 6px 0 0;
-  font-size: 13px;
-  line-height: 1.45;
+  margin: 3px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
   color: var(--color-text-muted);
 }
 
-.invoice-slip-doc-type {
-  margin: 10px 0 0;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-text-subtle);
+.invoice-slip-title-block {
+  text-align: right;
+  margin-left: auto;
+  min-width: 0;
+  flex: 1 1 8rem;
 }
 
-.invoice-slip .invoice-slip-banner {
+.invoice-slip-doc-type {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.invoice-slip-number-row {
+  justify-content: flex-end;
+}
+
+.invoice-slip-title-block h1 {
+  margin: 1px 0 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--color-text);
+}
+
+.invoice-slip-issued {
+  margin: 2px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.invoice-slip-parties {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 12px 18px 6px;
+}
+
+.invoice-slip-parties .invoice-doc-client {
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.invoice-slip-parties .invoice-doc-contact,
+.invoice-slip-parties > div > .invoice-doc-value {
+  margin-top: 2px;
+  font-size: 13px;
+}
+
+.invoice-slip-amount {
+  padding: 8px 12px;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.invoice-slip-amount .invoice-doc-label {
+  color: var(--color-primary);
+}
+
+.invoice-slip-amount strong {
+  display: block;
+  margin-top: 1px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.invoice-slip-items {
+  padding: 8px 18px 2px;
+  border-top: 0;
+}
+
+.invoice-slip-items .invoice-doc-items-head {
+  padding: 6px 0 10px;
+}
+
+.invoice-slip-items .invoice-doc-table-wrap {
+  border: 1px solid var(--color-border-strong);
+}
+
+.invoice-slip .invoice-doc-table {
+  min-width: 0;
+}
+
+.invoice-slip .invoice-doc-table thead th {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-bottom: 0;
+  padding: 6px 8px;
+}
+
+.invoice-slip .invoice-doc-table tbody td {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.invoice-slip .invoice-doc-table tbody tr:nth-child(even) td {
   background: var(--color-surface-2);
+}
+
+.invoice-slip .invoice-doc-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.invoice-slip .invoice-doc-table th.is-index,
+.invoice-slip .invoice-doc-table td.is-index {
+  padding-left: 10px;
+  color: inherit;
+}
+
+.invoice-slip .invoice-doc-table thead th.is-index {
+  color: color-mix(in srgb, var(--color-text-on-primary) 78%, transparent);
+}
+
+.invoice-slip .invoice-doc-table th.is-num:last-child,
+.invoice-slip .invoice-doc-table td.is-num:last-child {
+  padding-right: 10px;
+}
+
+.invoice-slip .invoice-doc-table td.is-total {
+  color: var(--color-text);
+}
+
+.invoice-slip .invoice-doc-totals {
+  padding: 8px 0 2px;
+}
+
+.invoice-slip .invoice-doc-totals-row.is-grand {
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 2px solid var(--color-text);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.invoice-slip .invoice-doc-totals-row.is-grand strong {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .invoice-slip-notes {
   margin: 0;
-  padding: 12px 22px 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--color-text-muted);
+  padding: 6px 18px 0;
+}
+
+.invoice-slip-notes p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text);
 }
 
 .invoice-slip-footer {
-  padding: 16px 22px 20px;
-  border-top: 1px dashed var(--color-border-strong);
-}
-
-.invoice-slip-thanks {
-  margin: 0 0 8px;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
+  padding: 12px 18px 14px;
+  border-top: 1px solid var(--color-border);
 }
 
 .invoice-slip-signs {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 24px;
-  margin-top: 8px;
+  gap: 16px 32px;
 }
 
 .invoice-slip-sign {
-  flex: 1 1 10rem;
-  max-width: 14rem;
+  flex: 1 1 8rem;
+  max-width: 12rem;
 }
 
 .invoice-slip-sign span {
   display: block;
-  margin-top: 40px;
-  padding-top: 8px;
-  border-top: 1px solid var(--color-border-strong);
-  font-size: 11px;
+  margin-top: 28px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-text);
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.invoice-slip-thanks {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.invoice-slip-legal {
+  margin: 3px 0 0;
+  text-align: center;
+  font-size: 10px;
   color: var(--color-text-subtle);
 }
 
@@ -3667,6 +3857,16 @@ a.invoice-doc-client:hover {
   .invoice-doc-meta {
     grid-template-columns: minmax(0, 1.4fr) minmax(8rem, 0.8fr) minmax(9rem, 0.9fr);
     gap: 24px;
+  }
+
+  .invoice-slip-parties {
+    grid-template-columns: minmax(0, 1.4fr) minmax(9rem, 0.7fr);
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .invoice-slip-amount {
+    text-align: right;
   }
 }
 
@@ -3685,6 +3885,16 @@ a.invoice-doc-client:hover {
 
   .invoice-doc-hero-amount {
     align-items: flex-start;
+  }
+
+  .invoice-slip-title-block {
+    text-align: left;
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .invoice-slip-number-row {
+    justify-content: flex-start;
   }
 }
 
@@ -3858,12 +4068,15 @@ a.invoice-doc-client:hover {
 
 @media print {
   @page {
-    size: A4;
-    margin: 10mm;
+    margin: 8mm;
   }
 
   html,
   body {
+    width: auto !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
     background: #fff !important;
     background-image: none !important;
     color: #1c2320;
@@ -3884,39 +4097,107 @@ a.invoice-doc-client:hover {
   .app-content {
     display: block !important;
     width: 100% !important;
+    max-width: 100% !important;
     min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
+    overflow: visible !important;
   }
 
-  .invoice-doc {
-    max-width: none;
-    margin: 0;
-  }
-
+  .invoice-doc,
   .invoice-doc-sheet,
   .invoice-slip {
-    border: 1px solid #d0c9b8;
-    border-radius: 0;
-    box-shadow: none;
-    overflow: visible;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
   }
 
-  .invoice-doc-table {
-    min-width: 0;
+  .invoice-doc-table-wrap,
+  .invoice-slip-items .invoice-doc-table-wrap {
+    overflow: visible !important;
   }
 
-  .invoice-doc-due,
+  .invoice-doc-table,
+  .invoice-slip .invoice-doc-table {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
   .invoice-slip-letterhead,
-  .invoice-slip-banner {
+  .invoice-slip-amount,
+  .invoice-slip-mark,
+  .invoice-slip .invoice-doc-table thead th,
+  .invoice-slip .invoice-doc-table tbody tr:nth-child(even) td,
+  .invoice-doc-due {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
+  .invoice-slip-letterhead,
+  .invoice-slip-parties,
+  .invoice-slip-items,
+  .invoice-slip-notes,
+  .invoice-slip-footer {
+    padding-left: 2mm;
+    padding-right: 2mm;
+  }
+
   .invoice-slip-letterhead {
-    box-shadow: 0 3px 0 #fff, 0 5px 0 #2d6a56;
+    padding-top: 0;
+    padding-bottom: 6px;
+    gap: 8px 12px;
+  }
+
+  .invoice-slip-letterhead::after {
+    left: 2mm;
+    right: 2mm;
+  }
+
+  .invoice-slip-parties {
+    padding-top: 8px;
+    padding-bottom: 4px;
+    gap: 10px;
+  }
+
+  .invoice-slip-items {
+    padding-top: 6px;
+  }
+
+  .invoice-slip-mark {
+    width: 26px;
+    height: 26px;
+    font-size: 9px;
+  }
+
+  .invoice-slip-brand {
+    font-size: 13px;
+  }
+
+  .invoice-slip-title-block h1 {
+    font-size: 1.15rem;
+  }
+
+  .invoice-slip-amount strong {
+    font-size: 1.05rem;
+  }
+
+  .invoice-slip-sign span {
+    margin-top: 16px;
+  }
+
+  .invoice-slip-footer {
+    padding-top: 8px;
+    padding-bottom: 0;
+  }
+
+  .invoice-slip-legal {
+    display: none;
   }
 
   .invoice-slip a,
@@ -3926,8 +4207,10 @@ a.invoice-doc-client:hover {
   }
 
   .invoice-doc-due,
+  .invoice-slip-amount,
   .invoice-slip-footer,
-  .invoice-slip-letterhead {
+  .invoice-slip-letterhead,
+  .invoice-slip .invoice-doc-totals {
     break-inside: avoid;
   }
 }

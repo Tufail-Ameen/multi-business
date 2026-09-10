@@ -5,7 +5,9 @@ import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
 import * as Yup from "yup";
+import ContactField from "../components/ui/ContactField";
 import UserList from "../components/users/UserList";
+import { contactSchema } from "../lib/validation";
 
 const initialValues = {
   firstName: "",
@@ -32,13 +34,7 @@ const validationSchema = Yup.object({
     .max(50, "Last Name must be at most 50 characters")
     .required("Last Name is required"),
   email: Yup.string().required("Email is required").email("Invalid email address"),
-  phoneno: Yup.string()
-    .required("Phone No is required")
-    .test(
-      "phone-number",
-      "Phone number must be 11 digits and contain only numeric digits",
-      (value) => /^\d{11}$/.test(value || "")
-    ),
+  phoneno: contactSchema({ required: true, label: "Phone No" }),
   address: Yup.string().required("Address is Required"),
   pasword: Yup.string().required("Password is required"),
   sallary: Yup.string().required("Salary is required"),
@@ -139,11 +135,10 @@ export default function UsersPage() {
                 <label htmlFor="phone-no" className="form-label input-clr">
                   Phone No:
                 </label>
-                <Field
-                  type="text"
-                  className="form-control input-settings"
-                  id="phone-no"
+                <ContactField
                   name="phoneno"
+                  id="phone-no"
+                  className="form-control input-settings"
                 />
                 <ErrorMessage name="phoneno" component="div" className="text-red-600 fw-bold" />
               </div>

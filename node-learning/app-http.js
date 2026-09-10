@@ -25,6 +25,7 @@ const { registerCatalogRoutes } = require("./catalog-routes");
 const { registerPurchaseRoutes } = require("./purchase-routes");
 const { registerRateListRoutes } = require("./rate-list-routes");
 const { registerInvoiceRoutes } = require("./invoice-routes");
+const { parseContact } = require("./validation");
 
 class AppError extends Error {
   constructor(status, code, message, details = {}) {
@@ -33,6 +34,14 @@ class AppError extends Error {
     this.code = code;
     this.details = details;
   }
+}
+
+function readContact(value, { required = false } = {}) {
+  const parsed = parseContact(value, { required });
+  if (!parsed.ok) {
+    throw new AppError(400, "VALIDATION_ERROR", parsed.error);
+  }
+  return parsed.value;
 }
 
 function getJwtSecrets(overrides = {}) {
@@ -1102,7 +1111,7 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
           id: await nextTenantId(db, "clients", req.tenant.businessId),
           ...tenantScope(req),
           name: req.body.name,
-          phone: req.body.phone ?? "",
+          phone: readContact(req.body.phone) ?? "",
           area: req.body.area ?? "",
           address: req.body.address,
           city: req.body.city,
@@ -1131,7 +1140,7 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
         const result = await db.collection("clients").updateOne(filter, {
           $set: {
             name: req.body.name,
-            phone: req.body.phone ?? "",
+            phone: readContact(req.body.phone) ?? "",
             area: req.body.area ?? "",
             address: req.body.address,
             city: req.body.city,

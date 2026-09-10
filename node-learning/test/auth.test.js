@@ -156,6 +156,16 @@ test("2. Business A can access its own data", async () => {
   assert.equal(list.payload[0].name, "Alpha Client");
 });
 
+test("2-phone. Client phone must be 11 digits starting with 03", async () => {
+  const tooLong = await request("/clients", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, ownerA.user.activeBusinessId),
+    body: { name: "Long Phone Client", phone: "0309876543332232" },
+  });
+  assert.equal(tooLong.status, 400, JSON.stringify(tooLong.payload));
+  assert.equal(tooLong.payload.error.code, "VALIDATION_ERROR");
+});
+
 test("2a. Business Owner can create products and list inventory movements", async () => {
   const product = await request("/products", {
     method: "POST",

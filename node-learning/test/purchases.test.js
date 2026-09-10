@@ -169,6 +169,7 @@ test("supplier create/read/update/archive and tenant isolation", async () => {
   });
   assert.equal(patched.status, 200);
   assert.equal(patched.payload.city, "Lahore");
+  assert.equal(patched.payload.phone, "03111111111");
 
   const cross = await request(`/suppliers/${created.id}`, {
     headers: tenantHeaders(ownerB, businessBId),
@@ -182,6 +183,36 @@ test("supplier create/read/update/archive and tenant isolation", async () => {
   assert.equal(deleted.status, 200);
   // No history → hard delete
   assert.equal(deleted.payload.message, "Vendor deleted");
+});
+
+test("supplier phone must be 11 digits starting with 03", async () => {
+  const tooLong = await request("/suppliers", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: "Long Phone Vendor", phone: "0309876543332232" },
+  });
+  assert.equal(tooLong.status, 400, JSON.stringify(tooLong.payload));
+  assert.equal(tooLong.payload.error.code, "VALIDATION_ERROR");
+
+  const wrongPrefix = await request("/suppliers", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: "Wrong Prefix Vendor", phone: "12345678901" },
+  });
+  assert.equal(wrongPrefix.status, 400);
+
+  const created = await createSupplier(ownerA, businessAId, {
+    name: "Valid Phone Vendor",
+    phone: "03001234567",
+  });
+  assert.equal(created.phone, "03001234567");
+
+  const badPatch = await request(`/suppliers/${created.id}`, {
+    method: "PATCH",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { phone: "04001234567" },
+  });
+  assert.equal(badPatch.status, 400);
 });
 
 test("supplier with purchase history is archived not hard-deleted", async () => {

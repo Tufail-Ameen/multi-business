@@ -3,6 +3,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorMessage, Field, Form, Formik } from "formik";
 import { useEffect } from "react";
 import * as Yup from "yup";
+import ContactField from "../ui/ContactField";
+import { contactSchema, sanitizeContact } from "../../lib/validation";
 
 export const DEFAULT_CLIENT_CITY = "Lahore";
 export const DEFAULT_CLIENT_COUNTRY = "Pakistan";
@@ -18,12 +20,7 @@ const emptyForm = {
 
 const validationSchema = Yup.object({
   name: Yup.string().min(3).max(50).required("Shop name required"),
-  phone: Yup.string()
-    .required("Phone required")
-    .test("phone", "Enter a valid phone number", (value) => {
-      const digits = String(value || "").replace(/\D/g, "");
-      return digits.length >= 10 && digits.length <= 13;
-    }),
+  phone: contactSchema({ required: true }),
   area: Yup.string().required("Area required"),
   address: Yup.string().required("Address required"),
   city: Yup.string().required("City required"),
@@ -45,7 +42,7 @@ function clientToForm(client) {
 export function toClientPayload(values) {
   return {
     name: values.name.trim(),
-    phone: values.phone.trim(),
+    phone: sanitizeContact(values.phone),
     area: values.area.trim(),
     address: values.address.trim(),
     city: values.city.trim() || DEFAULT_CLIENT_CITY,
@@ -125,12 +122,10 @@ export default function ClientFormModal({ client, isSaving, onClose, onSubmit })
                       <label className="invoice-label" htmlFor="client-phone">
                         Phone number
                       </label>
-                      <Field
+                      <ContactField
                         name="phone"
                         id="client-phone"
-                        type="tel"
                         className="form-control input-settings"
-                        placeholder="03xxxxxxxxx"
                       />
                       <ErrorMessage name="phone" component="div" className="invoice-field-error" />
                     </div>

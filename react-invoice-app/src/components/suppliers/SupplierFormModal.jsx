@@ -3,6 +3,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from "formik";
 import { useEffect } from "react";
 import * as Yup from "yup";
+import ContactField from "../ui/ContactField";
+import { contactSchema, sanitizeContact } from "../../lib/validation";
 
 export const DEFAULT_SUPPLIER_CITY = "Lahore";
 
@@ -17,7 +19,7 @@ const emptyForm = {
 const validationSchema = Yup.object({
   name: Yup.string().min(2).max(100).required("Name required"),
   companyName: Yup.string().max(150),
-  phone: Yup.string().max(30),
+  phone: contactSchema({ required: false }),
   city: Yup.string().max(80),
   status: Yup.string().oneOf(["ACTIVE", "ARCHIVED"]),
 });
@@ -38,7 +40,7 @@ export function toSupplierPayload(values) {
   return {
     name: values.name.trim(),
     companyName: values.companyName.trim() || null,
-    phone: values.phone.trim() || null,
+    phone: sanitizeContact(values.phone) || null,
     city: values.city.trim() || null,
     status: values.status === "ARCHIVED" ? "ARCHIVED" : "ACTIVE",
   };
@@ -162,12 +164,10 @@ export default function SupplierFormModal({ supplier, isSaving, onClose, onSubmi
                       <label className="invoice-label" htmlFor="supplier-phone">
                         Phone
                       </label>
-                      <Field
+                      <ContactField
                         name="phone"
                         id="supplier-phone"
-                        type="tel"
                         className="form-control input-settings"
-                        placeholder="03xxxxxxxxx"
                       />
                       <ErrorMessage name="phone" component="div" className="invoice-field-error" />
                     </div>

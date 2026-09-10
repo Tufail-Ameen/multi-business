@@ -11,6 +11,7 @@ const {
   getSupplierFinancialSummary,
   appendLedgerEntry,
 } = require("./supplierLedgerService");
+const { parseContact } = require("./validation");
 
 const SUPPLIER_STATUSES = Object.freeze({
   ACTIVE: "ACTIVE",
@@ -583,12 +584,17 @@ function registerPurchaseRoutes({
           throw new AppError(400, "VALIDATION_ERROR", "name is required");
         }
 
+        const phoneParsed = parseContact(req.body.phone);
+        if (!phoneParsed.ok) {
+          throw new AppError(400, "VALIDATION_ERROR", phoneParsed.error);
+        }
+
         const supplier = {
           id: await nextTenantId(db, "suppliers", req.tenant.businessId),
           businessId: req.tenant.businessId,
           name,
           companyName: toOptionalString(req.body.companyName),
-          phone: toOptionalString(req.body.phone),
+          phone: phoneParsed.value,
           email: toOptionalString(req.body.email),
           address: toOptionalString(req.body.address),
           city: toOptionalString(req.body.city),
@@ -648,12 +654,19 @@ function registerPurchaseRoutes({
           "taxNumber",
           "notes",
         ]) {
-          if (Object.prototype.hasOwnProperty.call(req.body, key)) {
-            updates[key] =
-              key === "name"
-                ? toOptionalString(req.body[key]) || existing.name
-                : toOptionalString(req.body[key]);
+          if (!Object.prototype.hasOwnProperty.call(req.body, key)) continue;
+          if (key === "phone") {
+            const phoneParsed = parseContact(req.body.phone);
+            if (!phoneParsed.ok) {
+              throw new AppError(400, "VALIDATION_ERROR", phoneParsed.error);
+            }
+            updates.phone = phoneParsed.value;
+            continue;
           }
+          updates[key] =
+            key === "name"
+              ? toOptionalString(req.body[key]) || existing.name
+              : toOptionalString(req.body[key]);
         }
         if (Object.prototype.hasOwnProperty.call(req.body, "status")) {
           updates.status = normalizeSupplierStatus(req.body.status);

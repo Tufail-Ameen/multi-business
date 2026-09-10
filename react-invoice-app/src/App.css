@@ -1108,6 +1108,10 @@ textarea {
   background: var(--color-primary-soft);
 }
 
+.product-table tbody tr.is-clickable {
+  cursor: pointer;
+}
+
 .product-table .col-actions {
   min-width: 148px;
   white-space: nowrap;
@@ -1142,7 +1146,9 @@ textarea {
 .btn-table-remove {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
+  min-width: 5.4rem;
   padding: 0.35rem 0.7rem;
   border-radius: 8px;
   font-size: 0.78rem;
@@ -1164,6 +1170,16 @@ textarea {
   color: var(--color-text-on-primary);
 }
 
+.btn-table-edit:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.btn-table-edit:disabled:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
 .btn-table-remove {
   background: #fef2f2;
   color: #b91c1c;
@@ -1173,6 +1189,49 @@ textarea {
 .btn-table-remove:hover {
   background: #b91c1c;
   color: #fff;
+}
+
+.btn-table-remove:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.btn-table-remove:disabled:hover {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.btn-table-paid {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 7.6rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  background: var(--color-paid-soft);
+  color: var(--color-paid);
+  border: 1px solid color-mix(in srgb, var(--color-paid) 22%, transparent);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-table-paid:hover {
+  background: var(--color-paid);
+  color: #fff;
+}
+
+.btn-table-paid:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.btn-table-paid:disabled:hover {
+  background: var(--color-paid-soft);
+  color: var(--color-paid);
 }
 
 .status-badge {
@@ -3517,6 +3576,93 @@ a.invoice-doc-client:hover {
   font-variant-numeric: tabular-nums;
 }
 
+.invoice-slip {
+  background: var(--color-surface);
+}
+
+.invoice-slip-letterhead {
+  padding: 22px 22px 16px;
+  text-align: center;
+  background: var(--color-surface);
+  border-bottom: 2px solid var(--color-primary);
+  box-shadow: 0 3px 0 var(--color-surface), 0 5px 0 var(--color-primary);
+}
+
+.invoice-slip-brand {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--color-primary);
+}
+
+.invoice-slip-brand-meta {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.invoice-slip-doc-type {
+  margin: 10px 0 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+.invoice-slip .invoice-slip-banner {
+  background: var(--color-surface-2);
+}
+
+.invoice-slip-notes {
+  margin: 0;
+  padding: 12px 22px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.invoice-slip-footer {
+  padding: 16px 22px 20px;
+  border-top: 1px dashed var(--color-border-strong);
+}
+
+.invoice-slip-thanks {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.invoice-slip-signs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.invoice-slip-sign {
+  flex: 1 1 10rem;
+  max-width: 14rem;
+}
+
+.invoice-slip-sign span {
+  display: block;
+  margin-top: 40px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-strong);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
 @media (min-width: 768px) {
   .invoice-doc-meta {
     grid-template-columns: minmax(0, 1.4fr) minmax(8rem, 0.8fr) minmax(9rem, 0.9fr);
@@ -3711,12 +3857,25 @@ a.invoice-doc-client:hover {
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    background-image: none !important;
+    color: #1c2320;
+  }
+
   .no-print,
   .app-sidebar,
   .app-navbar,
   .mobile-header,
   .bottom-nav,
-  .back-link {
+  .back-link,
+  .Toastify {
     display: none !important;
   }
 
@@ -3725,7 +3884,50 @@ a.invoice-doc-client:hover {
   .app-content {
     display: block !important;
     width: 100% !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .invoice-doc {
+    max-width: none;
+    margin: 0;
+  }
+
+  .invoice-doc-sheet,
+  .invoice-slip {
+    border: 1px solid #d0c9b8;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .invoice-doc-table {
+    min-width: 0;
+  }
+
+  .invoice-doc-due,
+  .invoice-slip-letterhead,
+  .invoice-slip-banner {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .invoice-slip-letterhead {
+    box-shadow: 0 3px 0 #fff, 0 5px 0 #2d6a56;
+  }
+
+  .invoice-slip a,
+  .invoice-doc a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
+  .invoice-doc-due,
+  .invoice-slip-footer,
+  .invoice-slip-letterhead {
+    break-inside: avoid;
   }
 }

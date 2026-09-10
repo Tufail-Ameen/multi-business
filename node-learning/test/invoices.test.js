@@ -326,14 +326,14 @@ test("pending invoice with two lines does not collide on movement ids", async ()
   assert.equal(stockB.payload.currentStock, 12);
 });
 
-test("pending invoices cannot be edited; tenant isolation holds", async () => {
+test("pending invoices can be edited; paid invoices cannot; tenant isolation holds", async () => {
   const clientA = await createClient(ownerA, businessAId, { name: "Alpha Client" });
   const productA = await createProduct(ownerA, businessAId, {
     name: "Alpha Item",
     openingStock: 20,
     salePrice: 10,
   });
-  const invoice = await createInvoice(ownerA, businessAId, {
+  const pending = await createInvoice(ownerA, businessAId, {
     clientId: clientA.id,
     issueDate: "2026-09-10",
     dueDate: "2026-09-13",
@@ -341,15 +341,40 @@ test("pending invoices cannot be edited; tenant isolation holds", async () => {
     items: [{ productId: productA.id, quantity: 1, tax: 0 }],
   });
 
-  const edit = await request(`/invoices/${invoice.id}`, {
+  const edited = await request(`/invoices/${pending.id}`, {
+    method: "PATCH",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      description: "updated pending",
+      items: [{ productId: productA.id, quantity: 3, tax: 0 }],
+    },
+  });
+  assert.equal(edited.status, 200, JSON.stringify(edited.payload));
+  assert.equal(edited.payload.invoice.description, "updated pending");
+  assert.equal(edited.payload.invoice.items[0].quantity, 3);
+  assert.equal(edited.payload.invoice.status, "pending");
+
+  const stockAfterEdit = await request(`/products/${productA.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(stockAfterEdit.payload.currentStock, 17);
+
+  const paid = await createInvoice(ownerA, businessAId, {
+    clientId: clientA.id,
+    issueDate: "2026-09-10",
+    dueDate: "2026-09-13",
+    status: "paid",
+    items: [{ productId: productA.id, quantity: 1, tax: 0 }],
+  });
+  const paidEdit = await request(`/invoices/${paid.id}`, {
     method: "PATCH",
     headers: tenantHeaders(ownerA, businessAId),
     body: { description: "should fail" },
   });
-  assert.equal(edit.status, 409);
-  assert.equal(edit.payload.error.code, "INVOICE_NOT_EDITABLE");
+  assert.equal(paidEdit.status, 409);
+  assert.equal(paidEdit.payload.error.code, "INVOICE_NOT_EDITABLE");
 
-  const other = await request(`/invoices/${invoice.id}`, {
+  const other = await request(`/invoices/${pending.id}`, {
     headers: tenantHeaders(ownerB, businessBId),
   });
   assert.equal(other.status, 404);

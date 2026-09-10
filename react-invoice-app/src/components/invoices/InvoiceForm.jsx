@@ -44,6 +44,7 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
 
   const products = productsData?.products || [];
   const isEdit = Boolean(invoice);
+  const isDraftEdit = !invoice || String(invoice.status).toLowerCase() === "draft";
 
   const [lines, setLines] = useState(
     invoice?.items?.length
@@ -325,17 +326,19 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
                   <button type="button" className="btn invoice-btn-ghost" onClick={onClose}>
                     Cancel
                   </button>
-                  <button
-                    type="button"
-                    className="btn invoice-btn-secondary"
-                    onClick={() => save(values, "draft")}
-                  >
-                    Save draft
-                  </button>
+                  {isDraftEdit ? (
+                    <button
+                      type="button"
+                      className="btn invoice-btn-secondary"
+                      onClick={() => save(values, "draft")}
+                    >
+                      Save draft
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="btn invoice-btn-primary"
-                    onClick={() => save(values, "pending")}
+                    onClick={() => save(values, isDraftEdit ? "pending" : invoice.status)}
                   >
                     {isEdit ? "Save invoice" : "Create invoice"}
                   </button>

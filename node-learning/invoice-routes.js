@@ -540,77 +540,100 @@ function registerInvoiceRoutes({
           id: Number(req.params.id),
           ...tenantScope(req),
         };
-        const existing = await db.collection("invoices").findOne(filter);
-        if (!existing) {
-          throw new AppError(404, "INVOICE_NOT_FOUND", "Invoice not found");
-        }
-        if (existing.status !== INVOICE_STATUSES.DRAFT) {
-          throw new AppError(
-            409,
-            "INVOICE_NOT_EDITABLE",
-            "Only draft invoices can be edited"
+        const updated = await withOptionalTransaction(mongoClient, async (session) => {
+          const existing = await db.collection("invoices").findOne(filter, { session });
+          if (!existing) {
+            throw new AppError(404, "INVOICE_NOT_FOUND", "Invoice not found");
+          }
+          if (existing.status === INVOICE_STATUSES.PAID) {
+            throw new AppError(
+              409,
+              "INVOICE_NOT_EDITABLE",
+              "Paid invoices cannot be edited"
+            );
+          }
+
+          const updates = {
+            updatedBy: req.auth.user.id,
+            updatedAt: new Date(),
+          };
+
+          if (Object.prototype.hasOwnProperty.call(req.body, "clientId")) {
+            const client = await findClient(
+              db,
+              req.tenant.businessId,
+              req.body.clientId,
+              { session }
+            );
+            if (!client) {
+              throw new AppError(404, "CLIENT_NOT_FOUND", "Client not found");
+            }
+            const snap = clientSnapshot(client);
+            updates.clientId = client.id;
+            updates.clientName = snap.name;
+            updates.clientArea = snap.area;
+            updates.clientPhone = snap.phone;
+            updates.clientEmail = snap.email;
+            updates.clientSnapshot = snap;
+          }
+
+          if (Object.prototype.hasOwnProperty.call(req.body, "issueDate")) {
+            const issueDate = toOptionalString(req.body.issueDate);
+            if (!issueDate) {
+              throw new AppError(400, "VALIDATION_ERROR", "issueDate is required");
+            }
+            updates.issueDate = issueDate;
+          }
+
+          if (Object.prototype.hasOwnProperty.call(req.body, "dueDate")) {
+            const dueDate = toOptionalString(req.body.dueDate);
+            if (!dueDate) {
+              throw new AppError(400, "VALIDATION_ERROR", "dueDate is required");
+            }
+            updates.dueDate = dueDate;
+          }
+
+          if (Object.prototype.hasOwnProperty.call(req.body, "description")) {
+            updates.description = toOptionalString(req.body.description) || "";
+          }
+
+          if (Object.prototype.hasOwnProperty.call(req.body, "currency")) {
+            updates.currency = toOptionalString(req.body.currency) || existing.currency;
+          }
+
+          if (Object.prototype.hasOwnProperty.call(req.body, "items")) {
+            const items = await hydrateItems(
+              db,
+              req.tenant.businessId,
+              req.body.items,
+              AppError,
+              { session }
+            );
+            const totals = totalsFromItems(items);
+            updates.items = items;
+            updates.subtotal = totals.subtotal;
+            updates.taxTotal = totals.taxTotal;
+            updates.total = totals.total;
+
+            if (existing.stockApplied === true) {
+              await reverseInvoiceStock(db, existing, req.auth.user.id, { session });
+              await applyInvoiceStock(
+                db,
+                { ...existing, ...updates, items },
+                req.auth.user.id,
+                { session }
+              );
+              updates.stockApplied = true;
+            }
+          }
+
+          await db.collection("invoices").updateOne(
+            filter,
+            { $set: updates },
+            session ? { session } : undefined
           );
-        }
-
-        const updates = {
-          updatedBy: req.auth.user.id,
-          updatedAt: new Date(),
-        };
-
-        if (Object.prototype.hasOwnProperty.call(req.body, "clientId")) {
-          const client = await findClient(db, req.tenant.businessId, req.body.clientId);
-          if (!client) {
-            throw new AppError(404, "CLIENT_NOT_FOUND", "Client not found");
-          }
-          const snap = clientSnapshot(client);
-          updates.clientId = client.id;
-          updates.clientName = snap.name;
-          updates.clientArea = snap.area;
-          updates.clientPhone = snap.phone;
-          updates.clientEmail = snap.email;
-          updates.clientSnapshot = snap;
-        }
-
-        if (Object.prototype.hasOwnProperty.call(req.body, "issueDate")) {
-          const issueDate = toOptionalString(req.body.issueDate);
-          if (!issueDate) {
-            throw new AppError(400, "VALIDATION_ERROR", "issueDate is required");
-          }
-          updates.issueDate = issueDate;
-        }
-
-        if (Object.prototype.hasOwnProperty.call(req.body, "dueDate")) {
-          const dueDate = toOptionalString(req.body.dueDate);
-          if (!dueDate) {
-            throw new AppError(400, "VALIDATION_ERROR", "dueDate is required");
-          }
-          updates.dueDate = dueDate;
-        }
-
-        if (Object.prototype.hasOwnProperty.call(req.body, "description")) {
-          updates.description = toOptionalString(req.body.description) || "";
-        }
-
-        if (Object.prototype.hasOwnProperty.call(req.body, "currency")) {
-          updates.currency = toOptionalString(req.body.currency) || existing.currency;
-        }
-
-        if (Object.prototype.hasOwnProperty.call(req.body, "items")) {
-          const items = await hydrateItems(
-            db,
-            req.tenant.businessId,
-            req.body.items,
-            AppError
-          );
-          const totals = totalsFromItems(items);
-          updates.items = items;
-          updates.subtotal = totals.subtotal;
-          updates.taxTotal = totals.taxTotal;
-          updates.total = totals.total;
-        }
-
-        await db.collection("invoices").updateOne(filter, { $set: updates });
-        const updated = await db.collection("invoices").findOne(filter);
+          return db.collection("invoices").findOne(filter, { session });
+        });
 
         await writeAuditLog(db, {
           businessId: req.tenant.businessId,
@@ -623,7 +646,7 @@ function registerInvoiceRoutes({
 
         res.json({ invoice: publicInvoice(updated) });
       } catch (error) {
-        next(error);
+        next(normalizeRouteError(AppError, error));
       }
     }
   );

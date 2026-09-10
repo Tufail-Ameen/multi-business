@@ -9,10 +9,12 @@ import { getErrorMessage } from "../lib/rtkBaseQuery";
 import {
   useDeleteInvoiceMutation,
   useGetInvoicesQuery,
+  useUpdateInvoiceStatusMutation,
 } from "../services/invoiceApi";
 
 export default function InvoicesPage() {
   const [showForm, setShowForm] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [query, setQuery] = useState("");
   const { can } = useAuth();
@@ -23,10 +25,36 @@ export default function InvoicesPage() {
   const { data, isLoading, isError, error, refetch } = useGetInvoicesQuery(params);
   const invoices = data?.invoices || [];
   const [deleteInvoice] = useDeleteInvoiceMutation();
+  const [updateStatus] = useUpdateInvoiceStatusMutation();
 
   useEffect(() => {
     if (isError) toast.error(getErrorMessage(error, "Failed to load invoices"));
   }, [isError, error]);
+
+  const onEdit = (invoice) => {
+    if (!can(PERMISSIONS.INVOICES_UPDATE)) return;
+    if (String(invoice.status).toLowerCase() === "paid") return;
+    setEditingInvoice(invoice);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingInvoice(null);
+  };
+
+  const onMarkPaid = async (invoice) => {
+    if (!can(PERMISSIONS.INVOICES_CHANGE_STATUS)) return;
+    const status = String(invoice.status).toLowerCase();
+    if (status !== "draft" && status !== "pending") return;
+    if (!window.confirm(`Make ${invoice.number} as paid?`)) return;
+    try {
+      await updateStatus({ id: invoice.id, status: "paid" }).unwrap();
+      toast.success(`${invoice.number} marked as paid`);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Status update failed"));
+    }
+  };
 
   const onDelete = async (invoice) => {
     if (!can(PERMISSIONS.INVOICES_DELETE)) return;
@@ -56,7 +84,10 @@ export default function InvoicesPage() {
             <button
               type="button"
               className="btn save-changes w-full py-2 px-3 sm:w-auto"
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                setEditingInvoice(null);
+                setShowForm(true);
+              }}
             >
               New invoice
             </button>
@@ -71,11 +102,20 @@ export default function InvoicesPage() {
           statusFilter={statusFilter}
           onStatusChange={setStatusFilter}
           onDelete={onDelete}
+          onMarkPaid={onMarkPaid}
+          onEdit={onEdit}
         />
       </section>
 
       {showForm && (
-        <InvoiceForm onClose={() => setShowForm(false)} onSaved={() => refetch()} />
+        <InvoiceForm
+          invoice={editingInvoice}
+          onClose={closeForm}
+          onSaved={() => {
+            closeForm();
+            refetch();
+          }}
+        />
       )}
     </div>
   );

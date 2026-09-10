@@ -3477,6 +3477,40 @@ a.invoice-doc-client:hover {
   font-variant-numeric: tabular-nums;
 }
 
+.invoice-doc-note {
+  margin: -4px 0 14px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.invoice-doc-totals {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 22px 16px;
+}
+
+.invoice-doc-totals-card {
+  width: min(100%, 18rem);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.invoice-doc-totals-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.invoice-doc-totals-row strong {
+  font-weight: 750;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
 @media (min-width: 768px) {
   .invoice-doc-meta {
     grid-template-columns: minmax(0, 1.4fr) minmax(8rem, 0.8fr) minmax(9rem, 0.9fr);

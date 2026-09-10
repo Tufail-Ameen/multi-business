@@ -5,15 +5,34 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Can } from "../auth/guards";
 import EmptyState from "../components/ui/EmptyState";
-import StatusBadge from "../components/ui/StatusBadge";
 import { PERMISSIONS } from "../lib/permissions";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
 import {
   useCancelPurchaseMutation,
   useConfirmPurchaseMutation,
+  useDeletePurchaseMutation,
   useGetPurchaseQuery,
+  useGetSupplierQuery,
 } from "../services/invoiceApi";
-import { formatAmount } from "../utils/invoice";
+import { formatAmount, formatInvoiceDate } from "../utils/invoice";
+
+function statusKey(status) {
+  return String(status || "").trim().toLowerCase();
+}
+
+function statusClass(status) {
+  const key = statusKey(status);
+  if (key === "confirmed") return "paid";
+  if (key === "cancelled") return "cancelled";
+  return "draft";
+}
+
+function statusLabel(status) {
+  const key = statusKey(status);
+  if (key === "confirmed") return "Confirmed";
+  if (key === "cancelled") return "Cancelled";
+  return "Draft";
+}
 
 export default function PurchaseDetailPage() {
   const { id } = useParams();
@@ -22,9 +41,17 @@ export default function PurchaseDetailPage() {
   const { data, isLoading, isError, error } = useGetPurchaseQuery(id);
   const [confirmPurchase] = useConfirmPurchaseMutation();
   const [cancelPurchase] = useCancelPurchaseMutation();
+  const [deletePurchase] = useDeletePurchaseMutation();
 
   const purchase = data?.purchase;
-  const isDraft = String(purchase?.status || "").toUpperCase() === "DRAFT";
+  const { data: supplierData } = useGetSupplierQuery(purchase?.supplierId, {
+    skip: purchase?.supplierId == null,
+  });
+  const supplier = supplierData?.supplier;
+
+  const status = statusKey(purchase?.status);
+  const isDraft = status === "draft";
+  const isConfirmed = status === "confirmed";
 
   useEffect(() => {
     if (isError) toast.error(getErrorMessage(error, "Purchase not found"));
@@ -56,9 +83,20 @@ export default function PurchaseDetailPage() {
     }
   };
 
+  const onDelete = async () => {
+    if (!window.confirm(`Delete ${purchase?.purchaseNumber || "this purchase"}?`)) return;
+    try {
+      await deletePurchase(id).unwrap();
+      toast.success("Deleted");
+      navigate("/purchases");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Delete failed"));
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="page-wrap">
+      <div className="invoice-doc">
         <p className="textcklr">Loading…</p>
       </div>
     );
@@ -70,38 +108,35 @@ export default function PurchaseDetailPage() {
     );
   }
 
-  return (
-    <div className="page-wrap invoice-detail">
-      <button type="button" className="back-link" onClick={() => navigate("/purchases")}>
-        <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
-        Go back
-      </button>
+  const items = purchase.items || [];
+  const vendorName = purchase.supplierName || supplier?.name || `Vendor #${purchase.supplierId}`;
+  const vendorPhone = supplier?.phone || "";
+  const currency = "Rs";
 
-      <div className="detail-toolbar">
-        <div className="flex items-center gap-3">
-          <span className="edit-discription mb-0">Status</span>
-          <StatusBadge status={purchase.status} />
-        </div>
-        <div className="detail-actions">
+  return (
+    <div className="invoice-doc">
+      <div className="invoice-doc-nav no-print">
+        <button
+          type="button"
+          className="back-link invoice-doc-back"
+          onClick={() => navigate("/purchases")}
+        >
+          <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
+          Purchases
+        </button>
+        <div className="invoice-doc-actions">
           {isDraft && (
-            <Can permission={PERMISSIONS.PURCHASES_CONFIRM}>
-              <button
-                type="button"
-                className="btn input-clr1 save py-2 px-3"
-                onClick={onConfirm}
-              >
-                Confirm
-              </button>
+            <Can permission={PERMISSIONS.PURCHASES_UPDATE}>
+              <Link to={`/purchases/${id}/edit`} className="btn edit py-2 px-3">
+                Edit
+              </Link>
             </Can>
           )}
           {isDraft && (
-            <Can permission={PERMISSIONS.PURCHASES_UPDATE}>
-              <Link
-                to={`/purchases/${id}/edit`}
-                className="btn input-clr1 edit py-2 px-3"
-              >
-                Edit
-              </Link>
+            <Can permission={PERMISSIONS.PURCHASES_CONFIRM}>
+              <button type="button" className="btn save-changes py-2 px-3" onClick={onConfirm}>
+                Confirm
+              </button>
             </Can>
           )}
           {isDraft && (
@@ -111,100 +146,142 @@ export default function PurchaseDetailPage() {
               </button>
             </Can>
           )}
+          {!isConfirmed && (
+            <Can permission={PERMISSIONS.PURCHASES_DELETE}>
+              <button type="button" className="btn delete py-2 px-3" onClick={onDelete}>
+                Delete
+              </button>
+            </Can>
+          )}
         </div>
       </div>
 
-      {isDraft && (
-        <p className="textcklr mb-3 text-sm">
+      {isDraft ? (
+        <p className="invoice-doc-note no-print">
           Stock increases only when you confirm this purchase.
         </p>
-      )}
+      ) : null}
 
-      <div className="detail-card">
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 md:col-span-6">
-            <p className="edit-id">#{purchase.purchaseNumber}</p>
-            <p className="edit-discription">{purchase.notes || "Purchase order"}</p>
+      <article className="invoice-doc-sheet">
+        <header className="invoice-doc-hero">
+          <div>
+            <p className="invoice-doc-kicker">Purchase</p>
+            <div className="invoice-doc-title-row">
+              <h1>#{purchase.purchaseNumber}</h1>
+              <span className={`status-badge ${statusClass(purchase.status)}`}>
+                {statusLabel(purchase.status)}
+              </span>
+            </div>
           </div>
-          <div className="col-span-12 md:col-span-6 md:text-end">
-            <span className="edit-discription block">Vendor</span>
-            <span className="date-bill-email block">
-              {purchase.supplierName || `#${purchase.supplierId}`}
-            </span>
-            <span className="edit-discription mt-3 block">Purchase Date</span>
-            <span className="date-bill-email block">
-              {purchase.purchaseDate
-                ? new Date(purchase.purchaseDate).toLocaleDateString()
-                : "—"}
-            </span>
+          <div className="invoice-doc-hero-amount">
+            <span>{isConfirmed ? "Remaining" : "Grand total"}</span>
+            <strong>
+              {formatAmount(currency, isConfirmed ? purchase.remainingAmount : purchase.grandTotal)}
+            </strong>
           </div>
-        </div>
+        </header>
 
-        <div className="table-setting my-4 overflow-x-auto">
-          <table className="table m-0">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Item</th>
-                <th>Qty</th>
-                <th>Unit Cost</th>
-                <th>Discount</th>
-                <th>Tax</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(purchase.items || []).map((item, index) => (
-                <tr key={`${item.productId}-${index}`}>
-                  <td>{index + 1}</td>
-                  <td>{item.productNameSnapshot || `Product #${item.productId}`}</td>
-                  <td>{item.quantity}</td>
-                  <td>{formatAmount("Rs", item.unitCost)}</td>
-                  <td>{formatAmount("Rs", item.discount)}</td>
-                  <td>{formatAmount("Rs", item.tax)}</td>
-                  <td>{formatAmount("Rs", item.lineTotal)}</td>
-                </tr>
-              ))}
-              <tr>
-                <th className="py-2" colSpan={6}>
-                  Subtotal
-                </th>
-                <th>{formatAmount("Rs", purchase.subtotal)}</th>
-              </tr>
-              <tr>
-                <th className="py-2" colSpan={6}>
-                  Discount
-                </th>
-                <th>{formatAmount("Rs", purchase.discount)}</th>
-              </tr>
-              <tr>
-                <th className="py-2" colSpan={6}>
-                  Tax
-                </th>
-                <th>{formatAmount("Rs", purchase.tax)}</th>
-              </tr>
-              <tr className="total">
-                <th className="py-4 px-2" colSpan={6}>
-                  Grand Total
-                </th>
-                <th className="total-price">{formatAmount("Rs", purchase.grandTotal)}</th>
-              </tr>
-              <tr>
-                <th className="py-2" colSpan={6}>
-                  Paid
-                </th>
-                <th>{formatAmount("Rs", purchase.paidAmount)}</th>
-              </tr>
-              <tr>
-                <th className="py-2" colSpan={6}>
-                  Remaining
-                </th>
-                <th>{formatAmount("Rs", purchase.remainingAmount)}</th>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <section className="invoice-doc-meta">
+          <div>
+            <span className="invoice-doc-label">Vendor</span>
+            {purchase.supplierId != null ? (
+              <Link to={`/vendors/${purchase.supplierId}`} className="invoice-doc-client">
+                {vendorName}
+              </Link>
+            ) : (
+              <span className="invoice-doc-client">{vendorName}</span>
+            )}
+            {vendorPhone ? <p className="invoice-doc-muted">{vendorPhone}</p> : null}
+          </div>
+          <div>
+            <span className="invoice-doc-label">Purchase date</span>
+            <p className="invoice-doc-value">{formatInvoiceDate(purchase.purchaseDate)}</p>
+          </div>
+          <div>
+            <span className="invoice-doc-label">Notes</span>
+            <p className="invoice-doc-value">{purchase.notes || "—"}</p>
+          </div>
+        </section>
+
+        <section className="invoice-doc-items">
+          <div className="invoice-doc-items-head">
+            <h2>Items</h2>
+            <span className="invoice-doc-count">
+              {items.length} {items.length === 1 ? "item" : "items"}
+            </span>
+          </div>
+
+          {!items.length ? (
+            <EmptyState
+              className="!border-0 !bg-transparent !shadow-none"
+              title="No line items"
+              message="This purchase has no products yet."
+            />
+          ) : (
+            <div className="invoice-doc-table-wrap">
+              <table className="invoice-doc-table">
+                <thead>
+                  <tr>
+                    <th className="is-index">#</th>
+                    <th>Item</th>
+                    <th className="is-num">Qty</th>
+                    <th className="is-num">Cost</th>
+                    <th className="is-num">Discount</th>
+                    <th className="is-num">Tax</th>
+                    <th className="is-num">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => (
+                    <tr key={`${item.productId}-${index}`}>
+                      <td className="is-index">{index + 1}</td>
+                      <td>
+                        <span className="invoice-doc-item-name">
+                          {item.productNameSnapshot || `Product #${item.productId}`}
+                        </span>
+                      </td>
+                      <td className="is-num">{item.quantity}</td>
+                      <td className="is-num">{formatAmount(currency, item.unitCost)}</td>
+                      <td className="is-num">{formatAmount(currency, item.discount)}</td>
+                      <td className="is-num">{formatAmount(currency, item.tax)}</td>
+                      <td className="is-num is-total">{formatAmount(currency, item.lineTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {items.length ? (
+            <>
+              <div className="invoice-doc-totals">
+                <div className="invoice-doc-totals-card">
+                  <div className="invoice-doc-totals-row">
+                    <span>Subtotal</span>
+                    <strong>{formatAmount(currency, purchase.subtotal)}</strong>
+                  </div>
+                  <div className="invoice-doc-totals-row">
+                    <span>Discount</span>
+                    <strong>{formatAmount(currency, purchase.discount)}</strong>
+                  </div>
+                  <div className="invoice-doc-totals-row">
+                    <span>Tax</span>
+                    <strong>{formatAmount(currency, purchase.tax)}</strong>
+                  </div>
+                  <div className="invoice-doc-totals-row">
+                    <span>Paid</span>
+                    <strong>{formatAmount(currency, purchase.paidAmount)}</strong>
+                  </div>
+                </div>
+              </div>
+              <div className="invoice-doc-due">
+                <span>Remaining</span>
+                <strong>{formatAmount(currency, purchase.remainingAmount)}</strong>
+              </div>
+            </>
+          ) : null}
+        </section>
+      </article>
     </div>
   );
 }

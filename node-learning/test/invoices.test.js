@@ -124,7 +124,7 @@ async function createClient(auth, businessId, body = {}) {
   const result = await request("/clients", {
     method: "POST",
     headers: tenantHeaders(auth, businessId),
-    body: { name: "Ali Traders", phone: "03001234567", city: "Lahore", ...body },
+    body: { name: "Ali Traders", phone: "03001234567", area: "Ichhra", city: "Lahore", ...body },
   });
   assert.equal(result.status, 201, JSON.stringify(result.payload));
   return result.payload;
@@ -182,6 +182,8 @@ test("create draft invoice, list it, and load detail", async () => {
   assert.equal(invoice.status, "draft");
   assert.equal(invoice.stockApplied, false);
   assert.equal(invoice.clientName, "Ali Traders");
+  assert.equal(invoice.clientArea, "Ichhra");
+  assert.equal(invoice.clientSnapshot.area, "Ichhra");
   assert.equal(invoice.items[0].name, "Widget");
   assert.equal(invoice.items[0].quantity, 2);
   assert.equal(invoice.total, 400);

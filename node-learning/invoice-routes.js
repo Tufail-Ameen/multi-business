@@ -60,6 +60,7 @@ function publicInvoice(invoice) {
     number: invoice.number,
     clientId: invoice.clientId,
     clientName: invoice.clientName || invoice.clientSnapshot?.name || "",
+    clientArea: invoice.clientArea || invoice.clientSnapshot?.area || "",
     clientPhone: invoice.clientPhone || invoice.clientSnapshot?.phone || "",
     clientEmail: invoice.clientEmail || invoice.clientSnapshot?.email || "",
     clientSnapshot: invoice.clientSnapshot || {},
@@ -406,6 +407,7 @@ function registerInvoiceRoutes({
             number: `${prefix}${id}`,
             clientId: client.id,
             clientName: snap.name,
+            clientArea: snap.area,
             clientPhone: snap.phone,
             clientEmail: snap.email,
             clientSnapshot: snap,
@@ -563,6 +565,7 @@ function registerInvoiceRoutes({
           const snap = clientSnapshot(client);
           updates.clientId = client.id;
           updates.clientName = snap.name;
+          updates.clientArea = snap.area;
           updates.clientPhone = snap.phone;
           updates.clientEmail = snap.email;
           updates.clientSnapshot = snap;

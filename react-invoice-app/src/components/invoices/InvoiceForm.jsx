@@ -1,4 +1,4 @@
-import { faPlus, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faMinus, faPlus, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorMessage, Field, Form, Formik } from "formik";
 import { useEffect, useState } from "react";
@@ -12,23 +12,32 @@ import {
   useUpdateInvoiceMutation,
   useUpdateInvoiceStatusMutation,
 } from "../../services/invoiceApi";
-import { calcLineTotal, formatAmount } from "../../utils/invoice";
+import {
+  INVOICE_CURRENCY,
+  calcLineTotal,
+  formatAmount,
+  productUnitPrice,
+} from "../../utils/invoice";
+import ProductRatePicker from "./ProductRatePicker";
 
 const schema = Yup.object({
   clientId: Yup.string().required("Client required"),
   issueDate: Yup.string().required("Date required"),
-  dueDate: Yup.string().required("Due date required"),
-  description: Yup.string(),
-  currency: Yup.string().required(),
 });
 
 function emptyLine() {
-  return { key: Math.random().toString(36).slice(2), productId: "", quantity: 1, tax: 0 };
+  return { key: Math.random().toString(36).slice(2), productId: "", quantity: 1 };
+}
+
+function nextQty(current, delta) {
+  const n = Number(current);
+  const base = Number.isFinite(n) && n > 0 ? n : 1;
+  return Math.max(1, base + delta);
 }
 
 export default function InvoiceForm({ invoice, onClose, onSaved }) {
   const { clients } = useClients();
-  const { data: productsData } = useGetProductsQuery({ per_page: 100, status: "active" });
+  const { data: productsData } = useGetProductsQuery({ per_page: 500, status: "active" });
   const [createInvoice] = useCreateInvoiceMutation();
   const [updateInvoice] = useUpdateInvoiceMutation();
   const [updateStatus] = useUpdateInvoiceStatusMutation();
@@ -40,16 +49,18 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
     invoice?.items?.length
       ? invoice.items.map((item) => ({
           key: Math.random().toString(36).slice(2),
-          productId: item.productId,
+          productId: item.productId != null ? String(item.productId) : "",
           quantity: item.quantity,
-          tax: item.tax || 0,
+          unitPrice: Number(item.unitPrice) || 0,
         }))
       : [emptyLine()]
   );
 
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (event.key === "Escape") onClose?.();
+      if (event.key !== "Escape") return;
+      if (event.defaultPrevented) return;
+      onClose?.();
     };
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -60,7 +71,7 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
     };
   }, [onClose]);
 
-  const productById = (id) => products.find((p) => p.id === id);
+  const productById = (id) => products.find((p) => String(p.id) === String(id));
 
   const updateLine = (index, patch) => {
     setLines((current) =>
@@ -68,32 +79,35 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
     );
   };
 
-  const grandTotal = lines.reduce((sum, line) => {
+  const lineAmount = (line) => {
     const product = productById(line.productId);
-    return sum + (calcLineTotal(line.quantity, product?.price, line.tax) || 0);
-  }, 0);
+    const unitPrice = product
+      ? productUnitPrice(product)
+      : Number(line.unitPrice) || 0;
+    return calcLineTotal(line.quantity, unitPrice);
+  };
+
+  const grandTotal = lines.reduce((sum, line) => sum + lineAmount(line), 0);
+  const filledCount = lines.filter((line) => line.productId).length;
 
   const initialValues = {
-    clientId: invoice?.clientId || "",
+    clientId: invoice?.clientId != null ? String(invoice.clientId) : "",
     issueDate: invoice?.issueDate || new Date().toISOString().slice(0, 10),
-    dueDate: invoice?.dueDate || new Date().toISOString().slice(0, 10),
-    description: invoice?.description || "",
-    currency: invoice?.currency || "Rs",
   };
 
   const buildPayload = (values, status) => ({
     clientId: values.clientId,
     issueDate: values.issueDate,
-    dueDate: values.dueDate,
-    description: values.description,
-    currency: values.currency,
+    dueDate: values.issueDate,
+    description: "",
+    currency: INVOICE_CURRENCY,
     status,
     items: lines
       .filter((line) => line.productId)
       .map((line) => ({
         productId: line.productId,
         quantity: Number(line.quantity),
-        tax: Number(line.tax) || 0,
+        tax: 0,
       })),
   });
 
@@ -152,192 +166,180 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
 
               <div className="invoice-modal-body">
                 <section className="invoice-modal-section">
-                  <div className="invoice-field">
-                    <label className="invoice-label" htmlFor="invoice-client">
-                      Client
-                    </label>
-                    <Field
-                      as="select"
-                      id="invoice-client"
-                      name="clientId"
-                      className="form-select input-settings"
-                    >
-                      <option value="">Select client…</option>
-                      {clients.map((c) => (
-                        <option key={c.key || c._id || c.id} value={String(c.id)}>
-                          {c.phone ? `${c.name} (${c.phone})` : c.name}
-                        </option>
-                      ))}
-                    </Field>
-                    <ErrorMessage name="clientId" component="div" className="invoice-field-error" />
-                  </div>
-
                   <div className="invoice-field-grid">
+                    <div className="invoice-field">
+                      <label className="invoice-label" htmlFor="invoice-client">
+                        Client
+                      </label>
+                      <Field
+                        as="select"
+                        id="invoice-client"
+                        name="clientId"
+                        className="form-select input-settings"
+                      >
+                        <option value="">Select client…</option>
+                        {clients.map((c) => (
+                          <option key={c.key || c._id || c.id} value={String(c.id)}>
+                            {c.phone ? `${c.name} (${c.phone})` : c.name}
+                          </option>
+                        ))}
+                      </Field>
+                      <ErrorMessage name="clientId" component="div" className="invoice-field-error" />
+                    </div>
+
                     <div className="invoice-field">
                       <label className="invoice-label" htmlFor="invoice-issue-date">
                         Invoice date
                       </label>
-                      <Field
-                        type="date"
-                        id="invoice-issue-date"
-                        name="issueDate"
-                        className="form-control input-settings"
-                      />
+                      <div className="invoice-date-wrap">
+                        <Field
+                          type="date"
+                          id="invoice-issue-date"
+                          name="issueDate"
+                          className="form-control input-settings"
+                        />
+                        <span className="invoice-currency-chip" title="Currency">
+                          {INVOICE_CURRENCY}
+                        </span>
+                      </div>
+                      <ErrorMessage name="issueDate" component="div" className="invoice-field-error" />
                     </div>
-                    <div className="invoice-field">
-                      <label className="invoice-label" htmlFor="invoice-due-date">
-                        Due date
-                      </label>
-                      <Field
-                        type="date"
-                        id="invoice-due-date"
-                        name="dueDate"
-                        className="form-control input-settings"
-                      />
-                    </div>
-                    <div className="invoice-field">
-                      <label className="invoice-label" htmlFor="invoice-currency">
-                        Currency
-                      </label>
-                      <Field
-                        as="select"
-                        id="invoice-currency"
-                        name="currency"
-                        className="form-select input-settings"
-                      >
-                        <option value="Rs">Rs</option>
-                        <option value="$">$</option>
-                      </Field>
-                    </div>
-                  </div>
-
-                  <div className="invoice-field">
-                    <label className="invoice-label" htmlFor="invoice-description">
-                      Description
-                    </label>
-                    <Field
-                      as="textarea"
-                      id="invoice-description"
-                      name="description"
-                      rows={3}
-                      className="form-control input-settings invoice-textarea"
-                      placeholder="Optional note for the client"
-                    />
                   </div>
                 </section>
 
-                <section className="invoice-modal-section">
+                <section className="invoice-lines-card">
                   <div className="invoice-lines-head">
                     <div>
-                      <h3 className="invoice-lines-title">Line items</h3>
-                      <p className="invoice-lines-hint">Products come from stock. Creating an invoice deducts quantity.</p>
+                      <h3 className="invoice-lines-title">Products</h3>
+                      <p className="invoice-lines-hint">Stock is deducted when this invoice is created.</p>
                     </div>
+                    <span className="invoice-lines-count">
+                      {filledCount} {filledCount === 1 ? "item" : "items"}
+                    </span>
                   </div>
 
-                  <div className="invoice-lines">
-                    <div className="invoice-line-row is-head" aria-hidden="true">
-                      <span>Product</span>
-                      <span>Qty</span>
-                      <span>Price</span>
-                      <span>Tax %</span>
-                      <span>Total</span>
-                      <span />
-                    </div>
+                  <div className="invoice-line-row is-head" aria-hidden="true">
+                    <span>Product</span>
+                    <span>Qty</span>
+                    <span>Price</span>
+                    <span>Total</span>
+                    <span />
+                  </div>
 
-                    {lines.map((line, index) => {
-                      const product = productById(line.productId);
-                      const lineTotal = calcLineTotal(line.quantity, product?.price, line.tax);
-                      return (
-                        <div className="invoice-line-row" key={line.key}>
-                          <label className="invoice-label md:hidden">Product</label>
-                          <select
-                            className="form-select input-settings"
-                            value={line.productId}
-                            onChange={(e) => updateLine(index, { productId: e.target.value })}
+                  {lines.map((line, index) => {
+                    const product = productById(line.productId);
+                    const unitPrice = product
+                      ? productUnitPrice(product)
+                      : Number(line.unitPrice) || 0;
+                    const lineTotal = calcLineTotal(line.quantity, unitPrice);
+                    const hasPrice = Boolean(product || unitPrice);
+                    return (
+                      <div
+                        className={`invoice-line-row${line.productId ? " is-filled" : ""}`}
+                        key={line.key}
+                      >
+                        <label className="invoice-label md:hidden">Product</label>
+                        <ProductRatePicker
+                          products={products}
+                          value={line.productId}
+                          onChange={(productId) => {
+                            const selected = productById(productId);
+                            updateLine(index, {
+                              productId,
+                              unitPrice: selected ? productUnitPrice(selected) : 0,
+                            });
+                          }}
+                        />
+
+                        <label className="invoice-label md:hidden">Qty</label>
+                        <div className="invoice-qty">
+                          <button
+                            type="button"
+                            onClick={() => updateLine(index, { quantity: nextQty(line.quantity, -1) })}
+                            aria-label="Decrease quantity"
                           >
-                            <option value="">Select product…</option>
-                            {products.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} — stock {p.stock} — {formatAmount(values.currency, p.price)}
-                              </option>
-                            ))}
-                          </select>
-
-                          <label className="invoice-label md:hidden">Qty</label>
+                            <FontAwesomeIcon icon={faMinus} />
+                          </button>
                           <input
                             type="number"
                             min={1}
-                            className="form-control input-settings"
+                            inputMode="numeric"
                             value={line.quantity}
                             onChange={(e) => updateLine(index, { quantity: e.target.value })}
                           />
-
-                          <label className="invoice-label md:hidden">Price</label>
-                          <div className="invoice-line-static">
-                            {product ? formatAmount(values.currency, product.price) : "—"}
-                          </div>
-
-                          <label className="invoice-label md:hidden">Tax %</label>
-                          <input
-                            type="number"
-                            min={0}
-                            className="form-control input-settings"
-                            value={line.tax}
-                            onChange={(e) => updateLine(index, { tax: e.target.value })}
-                          />
-
-                          <div className="invoice-line-total">
-                            {formatAmount(values.currency, lineTotal)}
-                          </div>
-
                           <button
                             type="button"
-                            className="invoice-line-remove"
-                            onClick={() => setLines(lines.filter((_, i) => i !== index))}
-                            aria-label="Remove line"
-                            disabled={lines.length === 1}
+                            onClick={() => updateLine(index, { quantity: nextQty(line.quantity, 1) })}
+                            aria-label="Increase quantity"
                           >
-                            <FontAwesomeIcon icon={faTrash} />
+                            <FontAwesomeIcon icon={faPlus} />
                           </button>
                         </div>
-                      );
-                    })}
-                  </div>
 
-                  <button
-                    type="button"
-                    className="invoice-add-line"
-                    onClick={() => setLines([...lines, emptyLine()])}
-                  >
-                    <FontAwesomeIcon icon={faPlus} />
-                    Add product line
-                  </button>
+                        <div className="invoice-line-money">
+                          <label className="invoice-label md:hidden">Price</label>
+                          <div className={`invoice-line-static${hasPrice ? "" : " is-empty"}`}>
+                            {hasPrice ? formatAmount(INVOICE_CURRENCY, unitPrice) : "—"}
+                          </div>
+                        </div>
 
-                  <div className="invoice-total-card">
-                    <span>Amount due</span>
-                    <strong>{formatAmount(values.currency, grandTotal)}</strong>
+                        <div className="invoice-line-money">
+                          <label className="invoice-label md:hidden">Total</label>
+                          <div className={`invoice-line-total${hasPrice ? "" : " is-empty"}`}>
+                            {formatAmount(INVOICE_CURRENCY, lineTotal)}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="invoice-line-remove"
+                          onClick={() => setLines(lines.filter((_, i) => i !== index))}
+                          aria-label="Remove line"
+                          disabled={lines.length === 1}
+                        >
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  <div className="invoice-lines-add">
+                    <button
+                      type="button"
+                      className="invoice-add-line"
+                      onClick={() => setLines([...lines, emptyLine()])}
+                    >
+                      <FontAwesomeIcon icon={faPlus} />
+                      Add product
+                    </button>
                   </div>
                 </section>
               </div>
 
               <footer className="invoice-modal-foot">
-                <button type="button" className="btn invoice-btn-ghost" onClick={onClose}>
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn invoice-btn-secondary"
-                  onClick={() => save(values, "draft")}
-                >
-                  Save draft
-                </button>
-                <button
-                  type="button"
-                  className="btn invoice-btn-primary"
-                  onClick={() => save(values, "pending")}
-                >
-                  {isEdit ? "Save invoice" : "Create invoice"}
-                </button>
+                <div className="invoice-total-card">
+                  <span>Amount due</span>
+                  <strong>{formatAmount(INVOICE_CURRENCY, grandTotal)}</strong>
+                </div>
+                <div className="invoice-modal-foot-actions">
+                  <button type="button" className="btn invoice-btn-ghost" onClick={onClose}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn invoice-btn-secondary"
+                    onClick={() => save(values, "draft")}
+                  >
+                    Save draft
+                  </button>
+                  <button
+                    type="button"
+                    className="btn invoice-btn-primary"
+                    onClick={() => save(values, "pending")}
+                  >
+                    {isEdit ? "Save invoice" : "Create invoice"}
+                  </button>
+                </div>
               </footer>
             </div>
           </div>

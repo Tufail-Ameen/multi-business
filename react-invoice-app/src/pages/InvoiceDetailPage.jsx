@@ -1,12 +1,11 @@
 import { faAngleLeft } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Can } from "../auth/guards";
 import InvoiceForm from "../components/invoices/InvoiceForm";
 import EmptyState from "../components/ui/EmptyState";
-import StatusBadge from "../components/ui/StatusBadge";
 import { PERMISSIONS } from "../lib/permissions";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
 import {
@@ -14,7 +13,40 @@ import {
   useGetInvoiceQuery,
   useUpdateInvoiceStatusMutation,
 } from "../services/invoiceApi";
-import { formatAmount } from "../utils/invoice";
+import { formatAmount, formatInvoiceDate } from "../utils/invoice";
+
+function formatAddress(source) {
+  if (!source) return "";
+  const seen = new Set();
+  return [source.address, source.area, source.city, source.code, source.country]
+    .flatMap((part) => String(part || "").split(","))
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => {
+      const key = part.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join(", ");
+}
+
+function statusClass(status) {
+  const key = String(status || "").trim().toLowerCase();
+  if (key === "paid") return "paid";
+  if (key === "pending") return "pending";
+  if (key === "cancelled") return "cancelled";
+  return "draft";
+}
+
+function contactHref(value) {
+  const v = String(value || "").trim();
+  if (!v) return null;
+  if (v.includes("@")) return `mailto:${v}`;
+  const digits = v.replace(/[^\d+]/g, "");
+  if (digits.length >= 7) return `tel:${digits}`;
+  return null;
+}
 
 export default function InvoiceDetailPage() {
   const { id } = useParams();
@@ -53,7 +85,7 @@ export default function InvoiceDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="page-wrap">
+      <div className="invoice-doc">
         <p className="textcklr">Loading…</p>
       </div>
     );
@@ -66,145 +98,160 @@ export default function InvoiceDetailPage() {
   }
 
   const snap = invoice.clientSnapshot || {};
-  const from = invoice.billFrom || {};
+  const status = String(invoice.status || "draft").toLowerCase();
+  const clientName = snap.name || invoice.clientName || "—";
+  const clientAddress = formatAddress(snap);
+  const contact =
+    snap.phone || snap.email || invoice.clientPhone || invoice.clientEmail || "";
+  const contactLink = contactHref(contact);
+  const items = invoice.items || [];
+  const currency = invoice.currency || "Rs";
 
   return (
-    <div className="page-wrap invoice-detail">
-      <button type="button" className="back-link" onClick={() => navigate("/invoices")}>
-        <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
-        Go back
-      </button>
-
-      <div className="detail-toolbar">
-        <div className="flex items-center gap-3">
-          <span className="edit-discription mb-0">Status</span>
-          <StatusBadge status={invoice.status} />
-        </div>
-        <div className="detail-actions">
-          {invoice.status === "draft" && (
+    <div className="invoice-doc">
+      <div className="invoice-doc-nav no-print">
+        <button type="button" className="back-link invoice-doc-back" onClick={() => navigate("/invoices")}>
+          <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
+          Invoices
+        </button>
+        <div className="invoice-doc-actions">
+          {status === "draft" && (
             <Can permission={PERMISSIONS.INVOICES_UPDATE}>
-              <button
-                type="button"
-                className="btn input-clr1 edit py-2 px-3"
-                onClick={() => setShowForm(true)}
-              >
+              <button type="button" className="btn edit py-2 px-3" onClick={() => setShowForm(true)}>
                 Edit
               </button>
             </Can>
           )}
-          {invoice.status !== "paid" && (
-            <Can permission={PERMISSIONS.INVOICES_DELETE}>
-              <button type="button" className="btn input-clr1 delete py-2 px-3" onClick={onDelete}>
-                Delete
+          {status === "draft" && (
+            <Can permission={PERMISSIONS.INVOICES_CHANGE_STATUS}>
+              <button type="button" className="btn save py-2 px-3" onClick={() => setStatus("pending")}>
+                Send
               </button>
             </Can>
           )}
-          {invoice.status === "draft" && (
+          {(status === "draft" || status === "pending") && (
             <Can permission={PERMISSIONS.INVOICES_CHANGE_STATUS}>
               <button
                 type="button"
-                className="btn input-clr1 save py-2 px-3"
-                onClick={() => setStatus("pending")}
-              >
-                Send (deduct stock)
-              </button>
-            </Can>
-          )}
-          {(invoice.status === "draft" || invoice.status === "pending") && (
-            <Can permission={PERMISSIONS.INVOICES_CHANGE_STATUS}>
-              <button
-                type="button"
-                className="btn input-clr1 mark-paid py-2 px-3"
+                className="btn save-changes py-2 px-3"
                 onClick={() => setStatus("paid")}
               >
-                Mark as Paid
+                Mark as paid
               </button>
             </Can>
           )}
-          {(invoice.status === "draft" || invoice.status === "pending") && (
+          {(status === "draft" || status === "pending") && (
             <Can permission={PERMISSIONS.INVOICES_CHANGE_STATUS}>
-              <button
-                type="button"
-                className="btn cancel py-2 px-3"
-                onClick={() => setStatus("cancelled")}
-              >
+              <button type="button" className="btn cancel py-2 px-3" onClick={() => setStatus("cancelled")}>
                 Cancel
               </button>
             </Can>
           )}
+          {status !== "paid" && (
+            <Can permission={PERMISSIONS.INVOICES_DELETE}>
+              <button type="button" className="btn delete py-2 px-3" onClick={onDelete}>
+                Delete
+              </button>
+            </Can>
+          )}
         </div>
       </div>
 
-      <div className="detail-card">
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 md:col-span-6">
-            <p className="edit-id">#{invoice.number}</p>
-            <p className="edit-discription">{invoice.description}</p>
+      <article className="invoice-doc-sheet">
+        <header className="invoice-doc-hero">
+          <div>
+            <p className="invoice-doc-kicker">Invoice</p>
+            <div className="invoice-doc-title-row">
+              <h1>#{invoice.number}</h1>
+              <span className={`status-badge ${statusClass(status)}`}>{status}</span>
+            </div>
           </div>
-          <div className="col-span-12 md:col-span-6 md:text-end">
-            <p className="p-0 m-0 line-height">{from.address},</p>
-            <p className="p-0 m-0 line-height">{from.city},</p>
-            <p className="p-0 m-0 line-height">{from.code},</p>
-            <p className="p-0 m-0 line-height">{from.country}</p>
+          <div className="invoice-doc-hero-amount">
+            <span>Amount due</span>
+            <strong>{formatAmount(currency, invoice.total)}</strong>
           </div>
-        </div>
+        </header>
 
-        <div className="mt-2 grid grid-cols-12 gap-4">
-          <div className="col-span-6 md:col-span-3">
-            <span className="edit-discription block">Invoice Date</span>
-            <span className="date-bill-email block">{invoice.issueDate}</span>
-            <span className="edit-discription mt-4 block">Payment Due</span>
-            <span className="date-bill-email block">{invoice.dueDate}</span>
+        <section className="invoice-doc-meta">
+          <div>
+            <span className="invoice-doc-label">Bill to</span>
+            {invoice.clientId != null ? (
+              <Link to={`/clients/${invoice.clientId}`} className="invoice-doc-client">
+                {clientName}
+              </Link>
+            ) : (
+              <span className="invoice-doc-client">{clientName}</span>
+            )}
+            {clientAddress ? <p className="invoice-doc-muted">{clientAddress}</p> : null}
           </div>
-          <div className="col-span-6 md:col-span-4">
-            <span className="edit-discription block">Bill To</span>
-            <span className="date-bill-email block">{snap.name || invoice.clientName}</span>
-            <p className="p-0 m-0 mt-2 line-height">{snap.address},</p>
-            <p className="p-0 m-0 line-height">{snap.city},</p>
-            <p className="p-0 m-0 line-height">{snap.code},</p>
-            <p className="p-0 m-0 line-height">{snap.country}</p>
+          <div>
+            <span className="invoice-doc-label">Invoice date</span>
+            <p className="invoice-doc-value">{formatInvoiceDate(invoice.issueDate)}</p>
           </div>
-          <div className="col-span-12 md:col-span-5">
-            <span className="edit-discription block">Sent to</span>
-            <span className="date-bill-email block">
-              {snap.phone || snap.email || invoice.clientPhone || invoice.clientEmail || "—"}
+          <div>
+            <span className="invoice-doc-label">Contact</span>
+            {contactLink ? (
+              <a className="invoice-doc-value invoice-doc-contact" href={contactLink}>
+                {contact}
+              </a>
+            ) : (
+              <p className="invoice-doc-value">{contact || "—"}</p>
+            )}
+          </div>
+        </section>
+
+        <section className="invoice-doc-items">
+          <div className="invoice-doc-items-head">
+            <h2>Products</h2>
+            <span className="invoice-doc-count">
+              {items.length} {items.length === 1 ? "item" : "items"}
             </span>
           </div>
-        </div>
 
-        <div className="table-setting my-4 overflow-x-auto">
-          <table className="table m-0">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Item Name</th>
-                <th>Qty.</th>
-                <th>Price</th>
-                <th>Tax(%)</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(invoice.items || []).map((item, index) => (
-                <tr key={`${item.productId}-${item.name}`}>
-                  <td>{index + 1}</td>
-                  <td>{item.name}</td>
-                  <td>{item.quantity}</td>
-                  <td>{formatAmount(invoice.currency, item.unitPrice)}</td>
-                  <td>{item.tax}%</td>
-                  <td>{formatAmount(invoice.currency, item.lineTotal)}</td>
-                </tr>
-              ))}
-              <tr className="total">
-                <th className="py-4 px-2" colSpan={5}>
-                  Amount Due
-                </th>
-                <th className="total-price">{formatAmount(invoice.currency, invoice.total)}</th>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+          {!items.length ? (
+            <EmptyState
+              className="!border-0 !bg-transparent !shadow-none"
+              title="No line items"
+              message="This invoice has no products yet."
+            />
+          ) : (
+            <div className="invoice-doc-table-wrap">
+              <table className="invoice-doc-table">
+                <thead>
+                  <tr>
+                    <th className="is-index">#</th>
+                    <th>Item</th>
+                    <th className="is-num">Qty</th>
+                    <th className="is-num">Price</th>
+                    <th className="is-num">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => (
+                    <tr key={`${item.productId}-${item.name}-${index}`}>
+                      <td className="is-index">{index + 1}</td>
+                      <td>
+                        <span className="invoice-doc-item-name">{item.name}</span>
+                        {item.sku ? <span className="invoice-doc-muted">{item.sku}</span> : null}
+                      </td>
+                      <td className="is-num">{item.quantity}</td>
+                      <td className="is-num">{formatAmount(currency, item.unitPrice)}</td>
+                      <td className="is-num is-total">{formatAmount(currency, item.lineTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {items.length ? (
+            <div className="invoice-doc-due">
+              <span>Amount due</span>
+              <strong>{formatAmount(currency, invoice.total)}</strong>
+            </div>
+          ) : null}
+        </section>
+      </article>
 
       {showForm && (
         <InvoiceForm invoice={invoice} onClose={() => setShowForm(false)} onSaved={() => refetch()} />

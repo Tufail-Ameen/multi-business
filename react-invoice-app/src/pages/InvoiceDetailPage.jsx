@@ -27,12 +27,33 @@ function formatAddress(source) {
     .join(", ");
 }
 
+function formatPlace(source) {
+  if (!source) return "";
+  const seen = new Set();
+  return [source.city, source.country]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .filter((part) => {
+      const key = part.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join(", ");
+}
+
 function statusClass(status) {
   const key = String(status || "").trim().toLowerCase();
   if (key === "paid") return "paid";
   if (key === "pending") return "pending";
   if (key === "cancelled") return "cancelled";
   return "draft";
+}
+
+function statusLabel(status) {
+  const key = String(status || "draft").trim();
+  if (!key) return "Draft";
+  return key.charAt(0).toUpperCase() + key.slice(1).toLowerCase();
 }
 
 function contactHref(value) {
@@ -106,8 +127,8 @@ export default function InvoiceDetailPage() {
   const clientName = snap.name || invoice.clientName || "—";
   const clientAddress = formatAddress(snap);
   const shopName = billFrom.name || activeBusiness?.name || "";
-  const shopAddress = formatAddress(billFrom);
   const shopPhone = billFrom.phone || billFrom.phoneno || "";
+  const shopPlace = formatPlace(billFrom) || formatAddress(billFrom);
   const shopInitials = brandInitials(shopName);
   const contact =
     snap.phone || snap.email || invoice.clientPhone || invoice.clientEmail || "";
@@ -119,7 +140,6 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="invoice-doc">
-      <style>{`@media print { @page { size: 210mm 148mm; margin: 5mm; } }`}</style>
       <div className="invoice-doc-nav no-print">
         <button type="button" className="back-link invoice-doc-back" onClick={() => navigate("/invoices")}>
           <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
@@ -152,17 +172,20 @@ export default function InvoiceDetailPage() {
             ) : null}
             <div>
               {shopName ? <p className="invoice-slip-brand">{shopName}</p> : null}
-              {shopAddress ? <p className="invoice-slip-brand-meta">{shopAddress}</p> : null}
-              {shopPhone ? <p className="invoice-slip-brand-meta">{shopPhone}</p> : null}
+              {shopPhone || shopPlace ? (
+                <p className="invoice-slip-tagline">
+                  {[shopPlace, shopPhone].filter(Boolean).join(" · ")}
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="invoice-slip-title-block">
             <p className="invoice-slip-doc-type">Invoice</p>
-            <div className="invoice-doc-title-row invoice-slip-number-row">
+            <div className="invoice-slip-id-row">
               <h1>#{invoice.number}</h1>
-              <span className={`status-badge ${statusClass(status)} no-print`}>{status}</span>
+              <span className={`invoice-slip-chip ${statusClass(status)}`}>{statusLabel(status)}</span>
             </div>
-            <p className="invoice-slip-issued">{formatInvoiceDate(invoice.issueDate)}</p>
+            <p className="invoice-slip-date">{formatInvoiceDate(invoice.issueDate)}</p>
           </div>
         </header>
 
@@ -176,21 +199,21 @@ export default function InvoiceDetailPage() {
             ) : (
               <span className="invoice-doc-client">{clientName}</span>
             )}
-            {clientAddress ? <p className="invoice-doc-muted">{clientAddress}</p> : null}
-            {contactLink ? (
-              <a className="invoice-doc-value invoice-doc-contact" href={contactLink}>
-                {contact}
-              </a>
-            ) : contact ? (
-              <p className="invoice-doc-value">{contact}</p>
+            {clientAddress ? <p className="invoice-slip-meta-row">{clientAddress}</p> : null}
+            {contact ? (
+              contactLink ? (
+                <a className="invoice-slip-meta-row" href={contactLink}>
+                  {contact}
+                </a>
+              ) : (
+                <p className="invoice-slip-meta-row">{contact}</p>
+              )
             ) : null}
           </div>
           <aside className="invoice-slip-amount" aria-label="Amount due">
             <span className="invoice-doc-label">Amount due</span>
             <strong>{formatAmount(currency, invoice.total)}</strong>
-            {showDueDate ? (
-              <p className="invoice-doc-muted">Due {formatInvoiceDate(invoice.dueDate)}</p>
-            ) : null}
+            {showDueDate ? <p className="invoice-doc-muted">Due {formatInvoiceDate(invoice.dueDate)}</p> : null}
           </aside>
         </section>
 
@@ -262,17 +285,22 @@ export default function InvoiceDetailPage() {
           </section>
         ) : null}
 
-        <footer className="invoice-slip-footer">
-          <div className="invoice-slip-signs">
-            <div className="invoice-slip-sign">
-              <span>Received by</span>
-            </div>
-            <div className="invoice-slip-sign">
-              <span>{shopName ? `For ${shopName}` : "Authorized signature"}</span>
-            </div>
+        <div className="invoice-slip-signs">
+          <div className="invoice-slip-sign">
+            <div className="invoice-slip-sign-line" />
+            <span className="invoice-slip-sign-label">Received by</span>
           </div>
-          <p className="invoice-slip-thanks">Thank you for your business</p>
-          <p className="invoice-slip-legal">This is a computer-generated invoice.</p>
+          <div className="invoice-slip-sign is-shop">
+            <div className="invoice-slip-sign-line" />
+            <span className="invoice-slip-sign-label">
+              {shopName ? `For ${shopName}` : "Authorized signature"}
+            </span>
+          </div>
+        </div>
+
+        <footer className="invoice-slip-foot">
+          <p>Thank you for your business</p>
+          <p>This is a computer-generated invoice.</p>
         </footer>
       </article>
     </div>

@@ -381,6 +381,73 @@ test("pending invoices can be edited; paid invoices cannot; tenant isolation hol
   assert.equal(other.payload.error.code, "INVOICE_NOT_FOUND");
 });
 
+test("editing a pending invoice adds stock only for the quantity diff", async () => {
+  const clientDoc = await createClient(ownerA, businessAId, { name: "Diff Client" });
+  const productA = await createProduct(ownerA, businessAId, {
+    name: "Diff A",
+    openingStock: 30,
+    salePrice: 10,
+  });
+  const productB = await createProduct(ownerA, businessAId, {
+    name: "Diff B",
+    openingStock: 12,
+    salePrice: 20,
+  });
+
+  const invoice = await createInvoice(ownerA, businessAId, {
+    clientId: clientDoc.id,
+    issueDate: "2026-09-10",
+    dueDate: "2026-09-13",
+    status: "pending",
+    items: [{ productId: productA.id, quantity: 4, tax: 0 }],
+  });
+
+  const added = await request(`/invoices/${invoice.id}`, {
+    method: "PATCH",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      items: [
+        { productId: productA.id, quantity: 4, tax: 0 },
+        { productId: productB.id, quantity: 2, tax: 0 },
+      ],
+    },
+  });
+  assert.equal(added.status, 200, JSON.stringify(added.payload));
+  assert.equal(added.payload.invoice.items.length, 2);
+
+  let stockA = await request(`/products/${productA.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  let stockB = await request(`/products/${productB.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(stockA.payload.currentStock, 26);
+  assert.equal(stockB.payload.currentStock, 10);
+
+  const duplicates = await request(`/invoices/${invoice.id}`, {
+    method: "PATCH",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      items: [
+        { productId: productA.id, quantity: 1, tax: 0 },
+        { productId: productA.id, quantity: 5, tax: 0 },
+        { productId: productB.id, quantity: 2, tax: 0 },
+      ],
+    },
+  });
+  assert.equal(duplicates.status, 200, JSON.stringify(duplicates.payload));
+  assert.equal(duplicates.payload.invoice.items.length, 3);
+
+  stockA = await request(`/products/${productA.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  stockB = await request(`/products/${productB.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(stockA.payload.currentStock, 24);
+  assert.equal(stockB.payload.currentStock, 10);
+});
+
 async function run() {
   await setup();
   let failed = 0;

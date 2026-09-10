@@ -8,7 +8,7 @@ export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL ?? "";
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
-  timeout: 8000,
+  timeout: 30000,
 });
 
 const sessionExpiredListeners = new Set();
@@ -68,10 +68,15 @@ api.interceptors.response.use(
     const { response, config } = error;
 
     if (!response) {
+      const timedOut =
+        error.code === "ECONNABORTED" ||
+        String(error.message || "").toLowerCase().includes("timeout");
       throw new ApiError({
         status: 0,
-        code: "NETWORK_ERROR",
-        message: "Server se rabta nahi ho saka. Internet ya backend check karein.",
+        code: timedOut ? "TIMEOUT" : "NETWORK_ERROR",
+        message: timedOut
+          ? "Server respond nahi kar raha. Dobara Save dabain."
+          : "Server se rabta nahi ho saka. Internet ya backend check karein.",
       });
     }
 

@@ -82,6 +82,22 @@ function publicInvoice(invoice) {
   };
 }
 
+function isTransientMongoError(error) {
+  if (!error) return false;
+  if (error.code === 112 || error.codeName === "WriteConflict") return true;
+  if (typeof error.hasErrorLabel === "function") {
+    return (
+      error.hasErrorLabel("TransientTransactionError") ||
+      error.hasErrorLabel("UnknownTransactionCommitResult")
+    );
+  }
+  return Boolean(
+    error.errorLabelSet &&
+      typeof error.errorLabelSet.has === "function" &&
+      error.errorLabelSet.has("TransientTransactionError")
+  );
+}
+
 function normalizeRouteError(AppError, error) {
   if (error instanceof AppError) return error;
   if (error && error.status && error.code) {
@@ -90,6 +106,13 @@ function normalizeRouteError(AppError, error) {
       error.code,
       error.message,
       error.details || {}
+    );
+  }
+  if (isTransientMongoError(error)) {
+    return new AppError(
+      409,
+      "SAVE_CONFLICT",
+      "Invoice save conflict ho gaya. Dobara Save dabain."
     );
   }
   return error;
@@ -199,20 +222,41 @@ function statusAppliesStock(status) {
   return status === INVOICE_STATUSES.PENDING || status === INVOICE_STATUSES.PAID;
 }
 
+function quantityByProduct(items) {
+  const map = new Map();
+  if (!Array.isArray(items)) return map;
+  for (const item of items) {
+    const productId = Number(item.productId);
+    if (!Number.isFinite(productId)) continue;
+    const quantity = Math.abs(Number(item.quantity) || 0);
+    map.set(productId, (map.get(productId) || 0) + quantity);
+  }
+  return map;
+}
+
+function itemNameForProduct(items, productId) {
+  const match = (items || []).find(
+    (item) => Number(item.productId) === Number(productId)
+  );
+  return match?.name || null;
+}
+
 async function applyInvoiceStock(db, invoice, userId, { session } = {}) {
-  for (const item of invoice.items) {
+  const quantities = quantityByProduct(invoice.items);
+  for (const [productId, quantity] of quantities) {
+    if (!quantity) continue;
     await applyMovement(
       db,
       {
         businessId: invoice.businessId,
-        productId: item.productId,
+        productId,
         movementType: MOVEMENT_TYPES.SALE,
-        quantity: -Math.abs(item.quantity),
+        quantity: -quantity,
         referenceType: "invoice",
         referenceId: invoice.id,
         reason: `Invoice ${invoice.number}`,
         createdBy: userId,
-        productName: item.name,
+        productName: itemNameForProduct(invoice.items, productId),
       },
       { session }
     );
@@ -220,23 +264,75 @@ async function applyInvoiceStock(db, invoice, userId, { session } = {}) {
 }
 
 async function reverseInvoiceStock(db, invoice, userId, { session } = {}) {
-  for (const item of invoice.items) {
+  const quantities = quantityByProduct(invoice.items);
+  for (const [productId, quantity] of quantities) {
+    if (!quantity) continue;
     await applyMovement(
       db,
       {
         businessId: invoice.businessId,
-        productId: item.productId,
+        productId,
         movementType: MOVEMENT_TYPES.SALE_RETURN,
-        quantity: Math.abs(item.quantity),
+        quantity,
         referenceType: "invoice",
         referenceId: invoice.id,
         reason: `Invoice ${invoice.number} reversed`,
         createdBy: userId,
-        productName: item.name,
+        productName: itemNameForProduct(invoice.items, productId),
         allowNegativeOverride: true,
       },
       { session }
     );
+  }
+}
+
+async function syncInvoiceStock(db, existing, nextItems, userId, { session } = {}) {
+  const before = quantityByProduct(existing.items);
+  const after = quantityByProduct(nextItems);
+  const productIds = new Set([...before.keys(), ...after.keys()]);
+
+  for (const productId of productIds) {
+    const delta = (after.get(productId) || 0) - (before.get(productId) || 0);
+    if (!delta) continue;
+
+    const productName =
+      itemNameForProduct(nextItems, productId) ||
+      itemNameForProduct(existing.items, productId);
+
+    if (delta > 0) {
+      await applyMovement(
+        db,
+        {
+          businessId: existing.businessId,
+          productId,
+          movementType: MOVEMENT_TYPES.SALE,
+          quantity: -delta,
+          referenceType: "invoice",
+          referenceId: existing.id,
+          reason: `Invoice ${existing.number}`,
+          createdBy: userId,
+          productName,
+        },
+        { session }
+      );
+    } else {
+      await applyMovement(
+        db,
+        {
+          businessId: existing.businessId,
+          productId,
+          movementType: MOVEMENT_TYPES.SALE_RETURN,
+          quantity: -delta,
+          referenceType: "invoice",
+          referenceId: existing.id,
+          reason: `Invoice ${existing.number} adjusted`,
+          createdBy: userId,
+          productName,
+          allowNegativeOverride: true,
+        },
+        { session }
+      );
+    }
   }
 }
 
@@ -617,10 +713,10 @@ function registerInvoiceRoutes({
             updates.total = totals.total;
 
             if (existing.stockApplied === true) {
-              await reverseInvoiceStock(db, existing, req.auth.user.id, { session });
-              await applyInvoiceStock(
+              await syncInvoiceStock(
                 db,
-                { ...existing, ...updates, items },
+                existing,
+                items,
                 req.auth.user.id,
                 { session }
               );

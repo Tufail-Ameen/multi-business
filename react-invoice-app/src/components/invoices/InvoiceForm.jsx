@@ -1,7 +1,7 @@
 import { faMinus, faPlus, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorMessage, Field, Form, Formik } from "formik";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as Yup from "yup";
 import { useClients } from "../../hooks/useClients";
@@ -56,6 +56,10 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
         }))
       : [emptyLine()]
   );
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const linesListRef = useRef(null);
+  const prevLineCountRef = useRef(lines.length);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -71,6 +75,15 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [onClose]);
+
+  useEffect(() => {
+    const grew = lines.length > prevLineCountRef.current;
+    prevLineCountRef.current = lines.length;
+    if (!grew) return;
+    const list = linesListRef.current;
+    if (!list) return;
+    list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
+  }, [lines.length]);
 
   const productById = (id) => products.find((p) => String(p.id) === String(id));
 
@@ -113,11 +126,14 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
   });
 
   const save = async (values, status) => {
+    if (savingRef.current) return;
     const payload = buildPayload(values, status);
     if (!payload.items.length) {
       toast.error("Kam az kam 1 product select karo");
       return;
     }
+    savingRef.current = true;
+    setSaving(true);
     try {
       if (invoice) {
         await updateInvoice({ id: invoice.id, ...payload }).unwrap();
@@ -133,6 +149,9 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
       onClose?.();
     } catch (err) {
       toast.error(getErrorMessage(err, "Save failed"));
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   };
 
@@ -227,6 +246,7 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
                     <span />
                   </div>
 
+                  <div className="invoice-lines-list" ref={linesListRef}>
                   {lines.map((line, index) => {
                     const product = productById(line.productId);
                     const unitPrice = product
@@ -303,12 +323,13 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
                       </div>
                     );
                   })}
+                  </div>
 
                   <div className="invoice-lines-add">
                     <button
                       type="button"
                       className="invoice-add-line"
-                      onClick={() => setLines([...lines, emptyLine()])}
+                      onClick={() => setLines((current) => [...current, emptyLine()])}
                     >
                       <FontAwesomeIcon icon={faPlus} />
                       Add product
@@ -323,7 +344,7 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
                   <strong>{formatAmount(INVOICE_CURRENCY, grandTotal)}</strong>
                 </div>
                 <div className="invoice-modal-foot-actions">
-                  <button type="button" className="btn invoice-btn-ghost" onClick={onClose}>
+                  <button type="button" className="btn invoice-btn-ghost" onClick={onClose} disabled={saving}>
                     Cancel
                   </button>
                   {isDraftEdit ? (
@@ -331,16 +352,18 @@ export default function InvoiceForm({ invoice, onClose, onSaved }) {
                       type="button"
                       className="btn invoice-btn-secondary"
                       onClick={() => save(values, "draft")}
+                      disabled={saving}
                     >
-                      Save draft
+                      {saving ? "Saving…" : "Save draft"}
                     </button>
                   ) : null}
                   <button
                     type="button"
                     className="btn invoice-btn-primary"
                     onClick={() => save(values, isDraftEdit ? "pending" : invoice.status)}
+                    disabled={saving}
                   >
-                    {isEdit ? "Save invoice" : "Create invoice"}
+                    {saving ? "Saving…" : isEdit ? "Save invoice" : "Create invoice"}
                   </button>
                 </div>
               </footer>

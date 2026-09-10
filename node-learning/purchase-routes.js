@@ -12,6 +12,11 @@ const {
   appendLedgerEntry,
 } = require("./supplierLedgerService");
 const { parseContact } = require("./validation");
+const {
+  getPurchasePriceReport,
+  getPurchasePriceDetail,
+  getPurchasePriceHints,
+} = require("./purchasePriceService");
 
 const SUPPLIER_STATUSES = Object.freeze({
   ACTIVE: "ACTIVE",
@@ -1005,6 +1010,68 @@ function registerPurchaseRoutes({
           purchases: rows.map(publicPurchase),
           pagination: { page, limit, total, pages: Math.ceil(total / limit) },
         });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  app.get(
+    "/reports/purchase-prices",
+    ...tenantRoute,
+    requirePermission("purchases.view"),
+    async (req, res, next) => {
+      try {
+        const report = await getPurchasePriceReport(db, {
+          businessId: req.tenant.businessId,
+          q: toOptionalString(req.query.q),
+        });
+        res.json(report);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  app.get(
+    "/reports/purchase-prices/:productId",
+    ...tenantRoute,
+    requirePermission("purchases.view"),
+    async (req, res, next) => {
+      try {
+        const detail = await getPurchasePriceDetail(db, {
+          businessId: req.tenant.businessId,
+          productId: req.params.productId,
+        });
+        if (!detail) {
+          throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found");
+        }
+        res.json(detail);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  app.get(
+    "/reports/purchase-price-hints",
+    ...tenantRoute,
+    requirePermission("purchases.view"),
+    async (req, res, next) => {
+      try {
+        const productId = toOptionalNumber(req.query.productId);
+        if (productId == null) {
+          throw new AppError(400, "VALIDATION_ERROR", "productId is required");
+        }
+        const hints = await getPurchasePriceHints(db, {
+          businessId: req.tenant.businessId,
+          productId,
+          supplierId: toOptionalNumber(req.query.supplierId),
+        });
+        if (!hints) {
+          throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found");
+        }
+        res.json(hints);
       } catch (error) {
         next(error);
       }

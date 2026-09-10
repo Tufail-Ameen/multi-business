@@ -1,11 +1,12 @@
 import { faAngleLeft, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { ErrorMessage, Field, Form, Formik } from "formik";
+import { ErrorMessage, Field, Form, Formik, useFormikContext } from "formik";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import * as Yup from "yup";
 import EmptyState from "../components/ui/EmptyState";
+import PurchaseRateHint from "../components/purchases/PurchaseRateHint";
 import { useProducts } from "../hooks/useProducts";
 import { useSuppliers } from "../hooks/useSuppliers";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
@@ -260,100 +261,14 @@ export default function PurchaseFormPage() {
           </div>
 
           <h2 className="page-title mb-3">Line items</h2>
-          <div className="flex flex-col gap-3 mb-3">
-            {lines.map((line, index) => (
-              <div
-                key={line.key}
-                className="grid grid-cols-12 items-end gap-2 invoice-row datalist py-3 px-2 m-0"
-              >
-                <div className="col-span-12 md:col-span-3">
-                  <label className="form-label input-clr">Product</label>
-                  <select
-                    className="form-select input-settings"
-                    value={line.productId}
-                    onChange={(e) => onProductChange(line.key, e.target.value)}
-                  >
-                    <option value="">Select product…</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={String(p.id)}>
-                        {p.name}
-                        {p.sku ? ` (${p.sku})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-span-6 md:col-span-1">
-                  <label className="form-label input-clr">Variant</label>
-                  <input
-                    type="number"
-                    className="form-control input-settings"
-                    value={line.variantId}
-                    onChange={(e) => updateLine(line.key, { variantId: e.target.value })}
-                    placeholder="—"
-                  />
-                </div>
-                <div className="col-span-6 md:col-span-1">
-                  <label className="form-label input-clr">Qty</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    className="form-control input-settings"
-                    value={line.quantity}
-                    onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
-                  />
-                </div>
-                <div className="col-span-6 md:col-span-2">
-                  <label className="form-label input-clr">Unit Cost</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="form-control input-settings"
-                    value={line.unitCost}
-                    onChange={(e) => updateLine(line.key, { unitCost: e.target.value })}
-                  />
-                </div>
-                <div className="col-span-6 md:col-span-1">
-                  <label className="form-label input-clr">Disc.</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="form-control input-settings"
-                    value={line.discount}
-                    onChange={(e) => updateLine(line.key, { discount: e.target.value })}
-                  />
-                </div>
-                <div className="col-span-6 md:col-span-1">
-                  <label className="form-label input-clr">Tax</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="form-control input-settings"
-                    value={line.tax}
-                    onChange={(e) => updateLine(line.key, { tax: e.target.value })}
-                  />
-                </div>
-                <div className="col-span-6 md:col-span-2">
-                  <label className="form-label input-clr">Line total</label>
-                  <div className="price py-2">{formatAmount("Rs", preview.lineTotals[index])}</div>
-                </div>
-                <div className="col-span-6 md:col-span-1 flex justify-end">
-                  <button
-                    type="button"
-                    className="btn cancel py-1 px-2"
-                    disabled={lines.length <= 1}
-                    onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
-                    aria-label="Remove line"
-                  >
-                    <FontAwesomeIcon icon={faTrash} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <PurchaseLines
+            lines={lines}
+            products={products}
+            preview={preview}
+            updateLine={updateLine}
+            onProductChange={onProductChange}
+            setLines={setLines}
+          />
 
           <button
             type="button"
@@ -399,6 +314,118 @@ export default function PurchaseFormPage() {
           </div>
         </Form>
       </Formik>
+    </div>
+  );
+}
+
+function PurchaseLines({
+  lines,
+  products,
+  preview,
+  updateLine,
+  onProductChange,
+  setLines,
+}) {
+  const { values } = useFormikContext();
+
+  return (
+    <div className="flex flex-col gap-3 mb-3">
+      {lines.map((line, index) => (
+        <div key={line.key} className="invoice-row datalist py-3 px-2 m-0">
+          <div className="grid grid-cols-12 items-end gap-2">
+            <div className="col-span-12 md:col-span-3">
+              <label className="form-label input-clr">Product</label>
+              <select
+                className="form-select input-settings"
+                value={line.productId}
+                onChange={(e) => onProductChange(line.key, e.target.value)}
+              >
+                <option value="">Select product…</option>
+                {products.map((p) => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.name}
+                    {p.sku ? ` (${p.sku})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-6 md:col-span-1">
+              <label className="form-label input-clr">Variant</label>
+              <input
+                type="number"
+                className="form-control input-settings"
+                value={line.variantId}
+                onChange={(e) => updateLine(line.key, { variantId: e.target.value })}
+                placeholder="—"
+              />
+            </div>
+            <div className="col-span-6 md:col-span-1">
+              <label className="form-label input-clr">Qty</label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                className="form-control input-settings"
+                value={line.quantity}
+                onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
+              />
+            </div>
+            <div className="col-span-6 md:col-span-2">
+              <label className="form-label input-clr">Unit Cost</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="form-control input-settings"
+                value={line.unitCost}
+                onChange={(e) => updateLine(line.key, { unitCost: e.target.value })}
+              />
+            </div>
+            <div className="col-span-6 md:col-span-1">
+              <label className="form-label input-clr">Disc.</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="form-control input-settings"
+                value={line.discount}
+                onChange={(e) => updateLine(line.key, { discount: e.target.value })}
+              />
+            </div>
+            <div className="col-span-6 md:col-span-1">
+              <label className="form-label input-clr">Tax</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="form-control input-settings"
+                value={line.tax}
+                onChange={(e) => updateLine(line.key, { tax: e.target.value })}
+              />
+            </div>
+            <div className="col-span-6 md:col-span-2">
+              <label className="form-label input-clr">Line total</label>
+              <div className="price py-2">{formatAmount("Rs", preview.lineTotals[index])}</div>
+            </div>
+            <div className="col-span-6 md:col-span-1 flex justify-end">
+              <button
+                type="button"
+                className="btn cancel py-1 px-2"
+                disabled={lines.length <= 1}
+                onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
+                aria-label="Remove line"
+              >
+                <FontAwesomeIcon icon={faTrash} />
+              </button>
+            </div>
+          </div>
+          <PurchaseRateHint
+            productId={line.productId}
+            supplierId={values.supplierId}
+            onUseRate={(unitCost) => updateLine(line.key, { unitCost })}
+          />
+        </div>
+      ))}
     </div>
   );
 }

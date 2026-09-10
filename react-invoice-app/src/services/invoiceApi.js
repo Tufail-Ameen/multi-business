@@ -31,6 +31,7 @@ export const invoiceApi = createApi({
     "Business",
     "Audit",
     "RateList",
+    "PurchasePrice",
   ],
   endpoints: (builder) => ({
     // ---- Auth ----
@@ -481,6 +482,45 @@ export const invoiceApi = createApi({
         { type: "Movement", id: "LIST" },
         "Supplier",
         "SupplierLedger",
+        "PurchasePrice",
+      ],
+    }),
+    getPurchasePrices: builder.query({
+      query: (params = {}) => ({ url: "/reports/purchase-prices", params }),
+      transformResponse: (response) => ({
+        products: response?.products || (Array.isArray(response) ? response : []),
+      }),
+      providesTags: (result) =>
+        result?.products
+          ? [
+              ...result.products.map((row) => ({
+                type: "PurchasePrice",
+                id: row.productId,
+              })),
+              { type: "PurchasePrice", id: "LIST" },
+            ]
+          : [{ type: "PurchasePrice", id: "LIST" }],
+    }),
+    getPurchasePriceDetail: builder.query({
+      query: (productId) => ({ url: `/reports/purchase-prices/${productId}` }),
+      providesTags: (result, error, id) => [
+        { type: "PurchasePrice", id },
+        { type: "PurchasePrice", id: "LIST" },
+      ],
+    }),
+    getPurchasePriceHints: builder.query({
+      query: ({ productId, supplierId } = {}) => ({
+        url: "/reports/purchase-price-hints",
+        params: {
+          productId,
+          ...(supplierId != null && supplierId !== ""
+            ? { supplierId }
+            : {}),
+        },
+      }),
+      providesTags: (result, error, arg) => [
+        { type: "PurchasePrice", id: arg?.productId },
+        { type: "PurchasePrice", id: "LIST" },
       ],
     }),
     cancelPurchase: builder.mutation({
@@ -643,6 +683,9 @@ export const {
   useConfirmPurchaseMutation,
   useCancelPurchaseMutation,
   useDeletePurchaseMutation,
+  useGetPurchasePricesQuery,
+  useGetPurchasePriceDetailQuery,
+  useGetPurchasePriceHintsQuery,
   useGetRateListsQuery,
   useGetRateListQuery,
   useGetClientRateListsQuery,

@@ -12,6 +12,8 @@ import LoginPage from "../pages/LoginPage";
 import PublicRateListPage from "../pages/PublicRateListPage";
 import PurchaseDetailPage from "../pages/PurchaseDetailPage";
 import PurchaseFormPage from "../pages/PurchaseFormPage";
+import PurchaseRateDetailPage from "../pages/PurchaseRateDetailPage";
+import PurchaseRatesPage from "../pages/PurchaseRatesPage";
 import PurchasesPage from "../pages/PurchasesPage";
 import ClientRateListsPage from "../pages/ClientRateListsPage";
 import RateListDetailPage from "../pages/RateListDetailPage";
@@ -140,6 +142,22 @@ export default function AppRoutes() {
             element={
               <RequirePermission permission={PERMISSIONS.PURCHASES_VIEW}>
                 <PurchasesPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/purchases/rates"
+            element={
+              <RequirePermission permission={PERMISSIONS.PURCHASES_VIEW}>
+                <PurchaseRatesPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/purchases/rates/:productId"
+            element={
+              <RequirePermission permission={PERMISSIONS.PURCHASES_VIEW}>
+                <PurchaseRateDetailPage />
               </RequirePermission>
             }
           />

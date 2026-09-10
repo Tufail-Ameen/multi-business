@@ -107,6 +107,9 @@ export function getNavPageTitle(pathname) {
   }
   if (pathname === "/purchases/new") return "New Purchase";
   if (/^\/purchases\/[^/]+\/edit$/.test(pathname)) return "Edit Purchase";
+  if (pathname === "/purchases/rates" || pathname.startsWith("/purchases/rates/")) {
+    return "Vendor rates";
+  }
   if (pathname.startsWith("/purchases/") && pathname !== "/purchases") {
     return "Purchase Details";
   }

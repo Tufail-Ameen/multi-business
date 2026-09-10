@@ -699,6 +699,111 @@ test("confirmation atomicity: purchase not confirmed if already confirmed path b
   assert.equal(ledger.payload.entries.length, 0);
 });
 
+async function confirmPurchase(auth, businessId, body) {
+  const draft = await request("/purchases", {
+    method: "POST",
+    headers: tenantHeaders(auth, businessId),
+    body,
+  });
+  assert.equal(draft.status, 201, JSON.stringify(draft.payload));
+  const confirmed = await request(`/purchases/${draft.payload.id}/confirm`, {
+    method: "POST",
+    headers: tenantHeaders(auth, businessId),
+  });
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed.payload));
+  return confirmed.payload.purchase;
+}
+
+test("purchase price report compares last vs previous and cheapest vs costliest vendor", async () => {
+  const cheapVendor = await createSupplier(ownerA, businessAId, {
+    name: "Umar Saleem Rates",
+  });
+  const dearVendor = await createSupplier(ownerA, businessAId, {
+    name: "Saeed Traders Rates",
+  });
+  const product = await createProduct(ownerA, businessAId, {
+    name: "Rate Cement",
+    sku: "CEM-RATE-1",
+    purchasePrice: 95,
+  });
+
+  await confirmPurchase(ownerA, businessAId, {
+    supplierId: dearVendor.id,
+    purchaseDate: "2026-08-01",
+    items: [{ productId: product.id, quantity: 2, unitCost: 100 }],
+  });
+  await confirmPurchase(ownerA, businessAId, {
+    supplierId: cheapVendor.id,
+    purchaseDate: "2026-09-05",
+    items: [{ productId: product.id, quantity: 2, unitCost: 90 }],
+  });
+  await confirmPurchase(ownerA, businessAId, {
+    supplierId: dearVendor.id,
+    purchaseDate: "2026-09-10",
+    items: [{ productId: product.id, quantity: 1, unitCost: 110 }],
+  });
+
+  const list = await request("/reports/purchase-prices", {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(list.status, 200, JSON.stringify(list.payload));
+  const row = (list.payload.products || []).find(
+    (item) => Number(item.productId) === Number(product.id)
+  );
+  assert.ok(row, "product missing from report");
+  assert.equal(row.vendorCount, 2);
+  assert.equal(row.last.unitPrice, 110);
+  assert.equal(row.last.supplierName, "Saeed Traders Rates");
+  assert.equal(row.cheapest.supplierName, "Umar Saleem Rates");
+  assert.equal(row.cheapest.unitPrice, 90);
+  assert.equal(row.mostExpensive.supplierName, "Saeed Traders Rates");
+  assert.equal(row.mostExpensive.unitPrice, 110);
+  assert.equal(row.rateChange, "up");
+
+  const detail = await request(`/reports/purchase-prices/${product.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(detail.status, 200);
+  assert.equal(detail.payload.history.length, 3);
+  assert.equal(detail.payload.vendors[0].supplierName, "Umar Saleem Rates");
+  const saeed = detail.payload.vendors.find(
+    (vendor) => Number(vendor.supplierId) === Number(dearVendor.id)
+  );
+  assert.equal(saeed.lastPrice, 110);
+  assert.equal(saeed.previousPrice, 100);
+  assert.equal(saeed.rateDiff, 10);
+
+  const hints = await request(
+    `/reports/purchase-price-hints?productId=${product.id}&supplierId=${dearVendor.id}`,
+    { headers: tenantHeaders(ownerA, businessAId) }
+  );
+  assert.equal(hints.status, 200);
+  assert.equal(hints.payload.lastFromVendor.unitPrice, 110);
+  assert.equal(hints.payload.previousFromVendor.unitPrice, 100);
+  assert.equal(hints.payload.cheapest.unitPrice, 90);
+
+  const isolated = await request("/reports/purchase-prices", {
+    headers: tenantHeaders(ownerB, businessBId),
+  });
+  assert.equal(isolated.status, 200);
+  const leaked = (isolated.payload.products || []).find(
+    (item) => Number(item.productId) === Number(product.id)
+  );
+  assert.equal(leaked, undefined);
+});
+
+test("purchase price report requires purchases.view and productId for hints", async () => {
+  const missing = await request("/reports/purchase-price-hints", {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(missing.status, 400);
+
+  const missingProduct = await request("/reports/purchase-prices/999999", {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(missingProduct.status, 404);
+});
+
 async function run() {
   await setup();
   let failed = 0;

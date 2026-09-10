@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { Can } from "../auth/guards";
 import { useAuth } from "../auth/AuthContext";
 import PurchaseList from "../components/purchases/PurchaseList";
+import PurchaseTabs from "../components/purchases/PurchaseTabs";
 import { PERMISSIONS } from "../lib/permissions";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
 import {
@@ -48,7 +49,7 @@ export default function PurchasesPage() {
               Purchases
             </h1>
             <p className="textcklr small mb-0">
-              Create purchase orders and confirm them to update stock.
+              Create purchase orders, then compare which vendor last sold cheaper or dearer.
             </p>
           </div>
           <Can permission={PERMISSIONS.PURCHASES_CREATE}>
@@ -57,6 +58,8 @@ export default function PurchasesPage() {
             </Link>
           </Can>
         </div>
+
+        <PurchaseTabs />
 
         <PurchaseList
           purchases={purchases}

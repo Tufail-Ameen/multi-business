@@ -1273,9 +1273,11 @@ textarea {
   color: var(--color-text-on-primary);
 }
 
-.stock-tab-btn:not(.active):hover {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+.stock-tab-nav a.stock-tab-btn {
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
 }
 
 .input-readonly {
@@ -3293,12 +3295,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--color-text-subtle);
 }
 
-.invoice-doc-hero-amount strong {
-  font-size: 1.55rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  color: var(--color-text);
-  font-variant-numeric: tabular-nums;
+.invoice-doc-hero-amount .cell-muted {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.invoice-doc-hero-amount .rate-change {
+  text-transform: none;
+  letter-spacing: 0;
+  margin-top: 4px;
 }
 
 .invoice-doc-meta {
@@ -3533,6 +3539,174 @@ a.invoice-doc-client:hover {
 
   .invoice-doc-hero-amount {
     align-items: flex-start;
+  }
+}
+
+.rate-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rate-change.is-up {
+  color: var(--color-danger);
+}
+
+.rate-change.is-down {
+  color: var(--color-paid);
+}
+
+.rate-change.is-same {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.vendor-rate-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.vendor-rate-name,
+.vendor-rate-name:visited {
+  font-weight: 700;
+  line-height: 1.25;
+  text-decoration: none;
+  color: var(--color-text);
+}
+
+.vendor-rate-name:hover {
+  text-decoration: underline;
+}
+
+.vendor-rate-amount {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.vendor-rate-cell.is-cheap .vendor-rate-name,
+.vendor-rate-cell.is-cheap .vendor-rate-name:visited,
+.vendor-rate-inline.is-cheap {
+  color: var(--color-paid);
+}
+
+.vendor-rate-cell.is-cheap .vendor-rate-amount {
+  color: color-mix(in srgb, var(--color-paid) 58%, #fff);
+}
+
+.vendor-rate-cell.is-dear .vendor-rate-name,
+.vendor-rate-cell.is-dear .vendor-rate-name:visited,
+.vendor-rate-inline.is-dear {
+  color: var(--color-danger);
+}
+
+.vendor-rate-cell.is-dear .vendor-rate-amount {
+  color: color-mix(in srgb, var(--color-danger) 58%, #fff);
+}
+
+.purchase-rate-hint {
+  margin: 8px 2px 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.purchase-rate-hint-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.purchase-rate-hint-row strong {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.purchase-rate-hint-row strong.vendor-rate-inline.is-cheap {
+  color: var(--color-paid);
+}
+
+.purchase-rate-hint-row strong.vendor-rate-inline.is-dear {
+  color: var(--color-danger);
+}
+
+.purchase-rate-hint-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.purchase-rate-compare {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 16px 22px 20px;
+}
+
+.purchase-rate-compare-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+}
+
+.purchase-rate-compare-card.is-cheap {
+  background: var(--color-paid-soft);
+}
+
+.purchase-rate-compare-card.is-dear {
+  background: var(--color-danger-soft);
+}
+
+.purchase-rate-compare-name {
+  color: var(--color-text);
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.purchase-rate-compare-name:hover {
+  text-decoration: underline;
+}
+
+.purchase-rate-compare-card.is-cheap .purchase-rate-compare-name,
+.purchase-rate-compare-card.is-cheap .purchase-rate-compare-name:visited {
+  color: var(--color-paid);
+}
+
+.purchase-rate-compare-card.is-cheap strong {
+  color: color-mix(in srgb, var(--color-paid) 58%, #fff);
+}
+
+.purchase-rate-compare-card.is-dear .purchase-rate-compare-name,
+.purchase-rate-compare-card.is-dear .purchase-rate-compare-name:visited {
+  color: var(--color-danger);
+}
+
+.purchase-rate-compare-card.is-dear strong {
+  color: color-mix(in srgb, var(--color-danger) 58%, #fff);
+}
+
+.purchase-rate-compare-card strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 768px) {
+  .purchase-rate-compare {
+    grid-template-columns: 1fr 1fr;
   }
 }
 

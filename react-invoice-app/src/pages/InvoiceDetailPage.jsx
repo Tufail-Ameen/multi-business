@@ -159,6 +159,20 @@ export default function InvoiceDetailPage() {
               </button>
             </Can>
           )}
+          {(status === "draft" || status === "pending") && (
+            <Can permission={PERMISSIONS.INVOICES_CHANGE_STATUS}>
+              <button
+                type="button"
+                className="btn save py-2 px-3"
+                onClick={() => {
+                  if (!window.confirm(`Mark ${invoice.number} as paid?`)) return;
+                  setStatus("paid");
+                }}
+              >
+                Mark as paid
+              </button>
+            </Can>
+          )}
         </div>
       </div>
 

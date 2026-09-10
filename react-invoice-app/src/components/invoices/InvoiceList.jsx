@@ -82,7 +82,7 @@ export default function InvoiceList({
     );
   } else {
     body = (
-      <table className="product-table w-full min-w-[60rem] md:min-w-full">
+      <table className="product-table w-full min-w-[52rem] md:min-w-full">
         <thead>
           <tr>
             <th className="col-index text-left">#</th>
@@ -92,8 +92,7 @@ export default function InvoiceList({
             <th className="text-left">Area</th>
             <th className="text-left">Amount</th>
             <th className="text-left">Status</th>
-            <th className="w-[1%] whitespace-nowrap text-left">Make as Paid</th>
-            <th className="w-[1%] whitespace-nowrap text-left">Actions</th>
+            <th className="w-[1%] whitespace-nowrap text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -133,33 +132,28 @@ export default function InvoiceList({
                   </span>
                 </td>
                 <td
-                  className="w-[1%] whitespace-nowrap text-left"
+                  className="w-[1%] whitespace-nowrap pl-2 text-right"
                   onClick={(event) => event.stopPropagation()}
                 >
-                  <Can permission={PERMISSIONS.INVOICES_CHANGE_STATUS}>
-                    <button
-                      type="button"
-                      className="btn btn-table-paid"
-                      onClick={() => onMarkPaid?.(invoice)}
-                      disabled={!canMarkPaid}
-                      title={
-                        canMarkPaid
-                          ? "Make as paid"
-                          : paid
-                            ? "Already paid"
-                            : "Only pending invoices can be marked paid"
-                      }
-                    >
-                      <FontAwesomeIcon icon={faCheck} />
-                      Make as Paid
-                    </button>
-                  </Can>
-                </td>
-                <td
-                  className="w-[1%] whitespace-nowrap text-left"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <div className="table-actions inline-flex justify-start">
+                  <div className="table-actions inline-flex justify-end">
+                    <Can permission={PERMISSIONS.INVOICES_CHANGE_STATUS}>
+                      <button
+                        type="button"
+                        className="btn btn-table-paid"
+                        onClick={() => onMarkPaid?.(invoice)}
+                        disabled={!canMarkPaid}
+                        title={
+                          canMarkPaid
+                            ? "Mark as paid"
+                            : paid
+                              ? "Already paid"
+                              : "Only pending invoices can be marked paid"
+                        }
+                      >
+                        <FontAwesomeIcon icon={faCheck} />
+                        Paid
+                      </button>
+                    </Can>
                     <Can permission={PERMISSIONS.INVOICES_UPDATE}>
                       <button
                         type="button"

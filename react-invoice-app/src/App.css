@@ -1143,7 +1143,8 @@ textarea {
 }
 
 .btn-table-edit,
-.btn-table-remove {
+.btn-table-remove,
+.btn-table-paid {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1202,21 +1203,9 @@ textarea {
 }
 
 .btn-table-paid {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  min-width: 7.6rem;
-  padding: 0.35rem 0.7rem;
-  border-radius: 8px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
   background: var(--color-paid-soft);
   color: var(--color-paid);
-  border: 1px solid color-mix(in srgb, var(--color-paid) 22%, transparent);
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  border-color: color-mix(in srgb, var(--color-paid) 22%, transparent);
 }
 
 .btn-table-paid:hover {

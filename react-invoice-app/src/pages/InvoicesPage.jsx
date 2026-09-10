@@ -47,7 +47,7 @@ export default function InvoicesPage() {
     if (!can(PERMISSIONS.INVOICES_CHANGE_STATUS)) return;
     const status = String(invoice.status).toLowerCase();
     if (status !== "draft" && status !== "pending") return;
-    if (!window.confirm(`Make ${invoice.number} as paid?`)) return;
+    if (!window.confirm(`Mark ${invoice.number} as paid?`)) return;
     try {
       await updateStatus({ id: invoice.id, status: "paid" }).unwrap();
       toast.success(`${invoice.number} marked as paid`);

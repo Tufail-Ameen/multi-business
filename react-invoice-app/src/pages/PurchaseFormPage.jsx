@@ -17,7 +17,7 @@ import {
 import { formatAmount } from "../utils/invoice";
 
 const schema = Yup.object({
-  supplierId: Yup.string().required("Supplier required"),
+  supplierId: Yup.string().required("Vendor required"),
   purchaseDate: Yup.string(),
   notes: Yup.string().max(500),
 });
@@ -222,7 +222,7 @@ export default function PurchaseFormPage() {
           <div className="mb-4 grid grid-cols-12 gap-3">
             <div className="col-span-12 md:col-span-6">
               <label className="form-label input-clr" htmlFor="supplierId">
-                Supplier
+                Vendor
               </label>
               <Field
                 as="select"
@@ -230,7 +230,7 @@ export default function PurchaseFormPage() {
                 id="supplierId"
                 className="form-select input-settings"
               >
-                <option value="">Select supplier…</option>
+                <option value="">Select vendor…</option>
                 {suppliers.map((s) => (
                   <option key={s.key || s.id} value={String(s.id)}>
                     {s.name}

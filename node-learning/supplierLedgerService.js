@@ -160,7 +160,7 @@ async function appendLedgerEntry(
     { session }
   );
   if (!supplier) {
-    throw Object.assign(new Error("Supplier not found"), {
+    throw Object.assign(new Error("Vendor not found"), {
       status: 404,
       code: "SUPPLIER_NOT_FOUND",
     });

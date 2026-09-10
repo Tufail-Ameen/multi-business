@@ -17,7 +17,7 @@ export function useSuppliers(params = {}) {
 
   useEffect(() => {
     if (query.isError) {
-      toast.error(getErrorMessage(query.error, "Failed to load suppliers"));
+      toast.error(getErrorMessage(query.error, "Failed to load vendors"));
     }
   }, [query.isError, query.error]);
 

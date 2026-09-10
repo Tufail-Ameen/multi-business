@@ -305,13 +305,13 @@ async function assertActiveSupplier(db, businessId, supplierId, { session } = {}
     { session }
   );
   if (!supplier) {
-    const err = new Error("Supplier not found");
+    const err = new Error("Vendor not found");
     err.status = 404;
     err.code = "SUPPLIER_NOT_FOUND";
     throw err;
   }
   if (supplier.status === SUPPLIER_STATUSES.ARCHIVED) {
-    const err = new Error("Supplier is archived");
+    const err = new Error("Vendor is archived");
     err.status = 409;
     err.code = "SUPPLIER_ARCHIVED";
     throw err;
@@ -553,7 +553,7 @@ function registerPurchaseRoutes({
           ...tenantScope(req),
         });
         if (!supplier) {
-          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Supplier not found");
+          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Vendor not found");
         }
         const summary = await getSupplierFinancialSummary(db, {
           businessId: req.tenant.businessId,
@@ -634,7 +634,7 @@ function registerPurchaseRoutes({
         };
         const existing = await db.collection("suppliers").findOne(filter);
         if (!existing) {
-          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Supplier not found");
+          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Vendor not found");
         }
 
         const updates = { updatedBy: req.auth.user.id, updatedAt: new Date() };
@@ -692,7 +692,7 @@ function registerPurchaseRoutes({
         };
         const existing = await db.collection("suppliers").findOne(filter);
         if (!existing) {
-          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Supplier not found");
+          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Vendor not found");
         }
 
         const purchaseCount = await db.collection("purchases").countDocuments({
@@ -746,7 +746,7 @@ function registerPurchaseRoutes({
           meta: { hardDelete: true },
         });
 
-        res.json({ message: "Supplier deleted", id: existing.id });
+        res.json({ message: "Vendor deleted", id: existing.id });
       } catch (error) {
         next(error);
       }
@@ -766,7 +766,7 @@ function registerPurchaseRoutes({
           ...tenantScope(req),
         });
         if (!supplier) {
-          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Supplier not found");
+          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Vendor not found");
         }
 
         const entries = await db
@@ -805,7 +805,7 @@ function registerPurchaseRoutes({
           ...tenantScope(req),
         });
         if (!supplier) {
-          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Supplier not found");
+          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Vendor not found");
         }
 
         const payments = await db
@@ -845,7 +845,7 @@ function registerPurchaseRoutes({
           ...tenantScope(req),
         });
         if (!supplier) {
-          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Supplier not found");
+          throw new AppError(404, "SUPPLIER_NOT_FOUND", "Vendor not found");
         }
 
         const outstanding = await getOutstandingBalance(db, {
@@ -890,7 +890,7 @@ function registerPurchaseRoutes({
                 credit: 0,
                 description:
                   toOptionalString(req.body.notes) ||
-                  `Supplier payment ${toMoney(amount)}`,
+                  `Vendor payment ${toMoney(amount)}`,
                 createdBy: req.auth.user.id,
               },
               { session }

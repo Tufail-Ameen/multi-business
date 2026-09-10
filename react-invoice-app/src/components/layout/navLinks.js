@@ -40,8 +40,8 @@ export const mainNavLinks = [
     permission: PERMISSIONS.RATE_LISTS_VIEW,
   },
   {
-    to: "/suppliers",
-    label: "Suppliers",
+    to: "/vendors",
+    label: "Vendors",
     icon: faTruck,
     permission: PERMISSIONS.SUPPLIERS_VIEW,
   },
@@ -102,8 +102,8 @@ export function getNavPageTitle(pathname) {
     return "Rate list";
   }
   if (pathname.startsWith("/clients/") && pathname !== "/clients") return "Client";
-  if (pathname.startsWith("/suppliers/") && pathname !== "/suppliers") {
-    return "Supplier Details";
+  if (pathname.startsWith("/vendors/") && pathname !== "/vendors") {
+    return "Vendor Details";
   }
   if (pathname === "/purchases/new") return "New Purchase";
   if (/^\/purchases\/[^/]+\/edit$/.test(pathname)) return "Edit Purchase";

@@ -181,7 +181,7 @@ test("supplier create/read/update/archive and tenant isolation", async () => {
   });
   assert.equal(deleted.status, 200);
   // No history → hard delete
-  assert.equal(deleted.payload.message, "Supplier deleted");
+  assert.equal(deleted.payload.message, "Vendor deleted");
 });
 
 test("supplier with purchase history is archived not hard-deleted", async () => {

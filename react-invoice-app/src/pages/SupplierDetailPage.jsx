@@ -64,7 +64,7 @@ export default function SupplierDetailPage() {
   };
 
   useEffect(() => {
-    if (supplierError) toast.error(getErrorMessage(supplierErr, "Supplier not found"));
+    if (supplierError) toast.error(getErrorMessage(supplierErr, "Vendor not found"));
   }, [supplierError, supplierErr]);
 
   useEffect(() => {
@@ -97,13 +97,13 @@ export default function SupplierDetailPage() {
 
   if (!supplier) {
     return (
-      <EmptyState title="Supplier not found" message="This supplier does not exist or was deleted." />
+      <EmptyState title="Vendor not found" message="This vendor does not exist or was deleted." />
     );
   }
 
   return (
     <div className="page-wrap invoice-detail">
-      <button type="button" className="back-link" onClick={() => navigate("/suppliers")}>
+      <button type="button" className="back-link" onClick={() => navigate("/vendors")}>
         <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
         Go back
       </button>
@@ -117,23 +117,17 @@ export default function SupplierDetailPage() {
 
       <div className="detail-card mb-4">
         <div className="grid grid-cols-12 gap-3">
-          <div className="col-span-12 md:col-span-6">
+          <div className="col-span-12 md:col-span-4">
             <span className="block edit-discription">Company</span>
             <span className="block date-bill-email">{supplier.companyName || "—"}</span>
-            <span className="block edit-discription mt-3">Phone</span>
-            <span className="block date-bill-email">{supplier.phone || "—"}</span>
-            <span className="block edit-discription mt-3">Email</span>
-            <span className="block date-bill-email">{supplier.email || "—"}</span>
           </div>
-          <div className="col-span-12 md:col-span-6">
-            <span className="block edit-discription">Address</span>
-            <span className="block date-bill-email">
-              {[supplier.address, supplier.city].filter(Boolean).join(", ") || "—"}
-            </span>
-            <span className="block edit-discription mt-3">Tax Number</span>
-            <span className="block date-bill-email">{supplier.taxNumber || "—"}</span>
-            <span className="block edit-discription mt-3">Notes</span>
-            <span className="block date-bill-email">{supplier.notes || "—"}</span>
+          <div className="col-span-12 md:col-span-4">
+            <span className="block edit-discription">Phone</span>
+            <span className="block date-bill-email">{supplier.phone || "—"}</span>
+          </div>
+          <div className="col-span-12 md:col-span-4">
+            <span className="block edit-discription">City</span>
+            <span className="block date-bill-email">{supplier.city || "—"}</span>
           </div>
         </div>
 

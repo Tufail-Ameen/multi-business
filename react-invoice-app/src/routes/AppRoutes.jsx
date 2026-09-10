@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { GuestOnly, RequireAuth, RequirePermission } from "../auth/guards";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { PERMISSIONS } from "../lib/permissions";
@@ -25,6 +25,11 @@ import PlatformBusinessesPage from "../pages/platform/PlatformBusinessesPage";
 import AuditLogPage from "../pages/team/AuditLogPage";
 import TeamRolesPage from "../pages/team/TeamRolesPage";
 import TeamUsersPage from "../pages/team/TeamUsersPage";
+
+function RedirectSupplierToVendor() {
+  const { id } = useParams();
+  return <Navigate to={`/vendors/${id}`} replace />;
+}
 
 export default function AppRoutes() {
   return (
@@ -113,7 +118,7 @@ export default function AppRoutes() {
           />
 
           <Route
-            path="/suppliers"
+            path="/vendors"
             element={
               <RequirePermission permission={PERMISSIONS.SUPPLIERS_VIEW}>
                 <SuppliersPage />
@@ -121,13 +126,15 @@ export default function AppRoutes() {
             }
           />
           <Route
-            path="/suppliers/:id"
+            path="/vendors/:id"
             element={
               <RequirePermission permission={PERMISSIONS.SUPPLIERS_VIEW}>
                 <SupplierDetailPage />
               </RequirePermission>
             }
           />
+          <Route path="/suppliers" element={<Navigate to="/vendors" replace />} />
+          <Route path="/suppliers/:id" element={<RedirectSupplierToVendor />} />
           <Route
             path="/purchases"
             element={

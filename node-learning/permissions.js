@@ -123,7 +123,7 @@ const SYSTEM_ROLE_TEMPLATES = [
   {
     slug: "inventory_manager",
     name: "Inventory Manager",
-    description: "Products, stock, suppliers, and purchases",
+    description: "Products, stock, vendors, and purchases",
     permissions: [
       "dashboard.view",
       "products.view",

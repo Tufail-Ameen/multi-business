@@ -33,7 +33,7 @@ export default function PurchaseDetailPage() {
   const onConfirm = async () => {
     if (
       !window.confirm(
-        "Confirm this purchase? Stock will increase and a supplier payable will be created."
+        "Confirm this purchase? Stock will increase and a vendor payable will be created."
       )
     ) {
       return;
@@ -127,7 +127,7 @@ export default function PurchaseDetailPage() {
             <p className="edit-discription">{purchase.notes || "Purchase order"}</p>
           </div>
           <div className="col-span-12 md:col-span-6 md:text-end">
-            <span className="edit-discription block">Supplier</span>
+            <span className="edit-discription block">Vendor</span>
             <span className="date-bill-email block">
               {purchase.supplierName || `#${purchase.supplierId}`}
             </span>

@@ -83,7 +83,7 @@ export default function PurchasesPage() {
                 {purchase.purchaseNumber}
               </div>
               <div className="textcklr col-span-12 text-sm md:col-span-3">
-                {purchase.supplierName || `Supplier #${purchase.supplierId}`}
+                {purchase.supplierName || `Vendor #${purchase.supplierId}`}
               </div>
               <div className="textcklr col-span-6 text-sm md:col-span-2">
                 {purchase.purchaseDate

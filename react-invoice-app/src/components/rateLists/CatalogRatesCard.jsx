@@ -34,7 +34,15 @@ function CatalogColumn({ products, startIndex = 1 }) {
   );
 }
 
-export default function CatalogRatesCard({ products, isLoading, search = "", onSearchChange }) {
+export default function CatalogRatesCard({
+  products,
+  isLoading,
+  search = "",
+  onSearchChange,
+  topSlot,
+  emptyTitle = "No catalog rates",
+  emptyMessage = "Add product sale prices in Products & Stock first.",
+}) {
   const visibleProducts = useMemo(
     () => products.filter((product) => matchesRateListQuery(product, search)),
     [products, search]
@@ -47,8 +55,8 @@ export default function CatalogRatesCard({ products, isLoading, search = "", onS
     body = (
       <EmptyState
         className="!border-0 !bg-transparent !shadow-none"
-        title="No catalog rates"
-        message="Add product sale prices in Products & Stock first."
+        title={emptyTitle}
+        message={emptyMessage}
       />
     );
   } else if (!visibleProducts.length) {
@@ -83,6 +91,9 @@ export default function CatalogRatesCard({ products, isLoading, search = "", onS
 
   return (
     <div className="form-card product-list-card client-list-card">
+      {topSlot ? (
+        <div className="shrink-0 border-b border-[var(--color-border)] px-3 py-3">{topSlot}</div>
+      ) : null}
       <div className="client-list-toolbar flex items-center border-b border-[var(--color-border)] px-3 py-3">
         <input
           type="search"

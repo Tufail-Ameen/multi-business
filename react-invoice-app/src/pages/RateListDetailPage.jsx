@@ -1,19 +1,24 @@
 import {
   faAngleLeft,
+  faBoxArchive,
+  faClone,
   faCopy,
   faEnvelope,
+  faFilePdf,
+  faPaperPlane,
   faPrint,
+  faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 import { useAuth } from "../auth/AuthContext";
 import { Can } from "../auth/guards";
 import RateListStatusBadge from "../components/rateLists/RateListStatusBadge";
-import SelectedRatesTable from "../components/rateLists/SelectedRatesTable";
+import CatalogRatesCard from "../components/rateLists/CatalogRatesCard";
 import SendRateListModal from "../components/rateLists/SendRateListModal";
 import EmptyState from "../components/ui/EmptyState";
 import { PERMISSIONS } from "../lib/permissions";
@@ -48,66 +53,6 @@ function printListPdf(list) {
   toast.success("Save as PDF, then send it on WhatsApp");
 }
 
-function ShareActions({ list }) {
-  const storeUrl = getStoreShareUrl(list);
-  const shareUrl = storeUrl || getRateListShareUrl(list);
-
-  const copyStoreLink = async () => {
-    if (!storeUrl) return;
-    const ok = await copyText(storeUrl);
-    toast.success(ok ? "Store link copied" : storeUrl);
-  };
-
-  if (isLocalhostOrigin()) {
-    return (
-      <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
-        {storeUrl ? (
-          <button type="button" className="btn save-changes py-2 px-3" onClick={copyStoreLink}>
-            <FontAwesomeIcon icon={faCopy} className="me-1" />
-            Copy store link
-          </button>
-        ) : null}
-        <button type="button" className="btn edit py-2 px-3" onClick={() => printListPdf(list)}>
-          <FontAwesomeIcon icon={faPrint} className="me-1" />
-          Save PDF
-        </button>
-      </Can>
-    );
-  }
-
-  if (!shareUrl) return null;
-  const message = shareMessage(list);
-
-  const copyLink = async () => {
-    const ok = await copyText(shareUrl);
-    toast.success(ok ? "Store link copied" : shareUrl);
-  };
-
-  return (
-    <>
-      <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
-        <button type="button" className="btn save-changes py-2 px-3" onClick={copyLink}>
-          <FontAwesomeIcon icon={faCopy} className="me-1" />
-          Copy store link
-        </button>
-        <a
-          className="btn edit py-2 px-3"
-          href={whatsappShareHref(message, shareUrl)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <FontAwesomeIcon icon={faWhatsapp} className="me-1" />
-          WhatsApp
-        </a>
-        <a className="btn edit py-2 px-3" href={mailtoShareHref(list, shareUrl)}>
-          <FontAwesomeIcon icon={faEnvelope} className="me-1" />
-          Email
-        </a>
-      </Can>
-    </>
-  );
-}
-
 export default function RateListDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -118,6 +63,19 @@ export default function RateListDetailPage() {
   const [sendRateList, sendState] = useSendRateListMutation();
   const [duplicateRateList, duplicateState] = useDuplicateRateListMutation();
   const [deleteRateList, deleteState] = useDeleteRateListMutation();
+  const [search, setSearch] = useState("");
+  const catalogProducts = useMemo(
+    () =>
+      (list?.items || []).map((item) => ({
+        id: item.productId,
+        name: item.productName,
+        sku: item.sku,
+        barcode: item.barcode,
+        unit: item.unit,
+        salePrice: item.customPrice ?? item.price ?? item.defaultPrice,
+      })),
+    [list?.items]
+  );
 
   const status = rateListStatus(list);
   const isDraft = status === "DRAFT";
@@ -147,7 +105,17 @@ export default function RateListDetailPage() {
     return <RateListEditorPage />;
   }
 
-  const shareUrl = getRateListShareUrl(list);
+  const storeUrl = getStoreShareUrl(list);
+  const shareUrl = storeUrl || getRateListShareUrl(list);
+  const localOrigin = isLocalhostOrigin();
+  const shareMessageText = shareMessage(list);
+
+  const copyStoreLink = async () => {
+    const url = storeUrl || shareUrl;
+    if (!url) return;
+    const ok = await copyText(url);
+    toast.success(ok ? "Store link copied" : url);
+  };
 
   const onSend = async (options) => {
     const confirmed = await Swal.fire({
@@ -219,103 +187,142 @@ export default function RateListDetailPage() {
   };
 
   return (
-    <div className="invoice-detail mx-auto w-full max-w-6xl">
-      <button
-        type="button"
-        className="back-link print:hidden"
-        onClick={() => navigate("/rate-lists/clients")}
-      >
-        <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
-        Go back
-      </button>
+    <div className="clients-page mx-auto w-full max-w-6xl">
+      <section className="clients-page-section">
+        <div className="rl-detail-nav print:hidden">
+          <button
+            type="button"
+            className="back-link"
+            onClick={() => navigate("/rate-lists/clients")}
+          >
+            <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
+            Go back
+          </button>
+          <div className="rl-detail-actions">
+            {isSent ? (
+              <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
+                {storeUrl || shareUrl ? (
+                  <button
+                    type="button"
+                    className="btn save-changes"
+                    onClick={copyStoreLink}
+                  >
+                    <FontAwesomeIcon icon={faCopy} />
+                    Copy store link
+                  </button>
+                ) : null}
+              </Can>
+            ) : null}
 
-      {isSent && (
-        <div className="mb-4 rounded-xl bg-[var(--color-accent-soft)] px-4 py-3 text-sm font-semibold text-[var(--color-text)] print:hidden">
-          Sent lists cannot be edited. Duplicate to make a new draft.
-        </div>
-      )}
-      {isArchived && (
-        <div className="mb-4 rounded-xl bg-[var(--color-draft-soft)] px-4 py-3 text-sm font-semibold text-[var(--color-text-muted)] print:hidden">
-          This list is archived. Duplicate it to make a new draft.
-        </div>
-      )}
+            <div className="rl-detail-group">
+              {isSent && localOrigin ? (
+                <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
+                  <button type="button" className="btn" onClick={() => printListPdf(list)}>
+                    <FontAwesomeIcon icon={faFilePdf} />
+                    Save PDF
+                  </button>
+                </Can>
+              ) : null}
+              {isSent && !localOrigin && shareUrl ? (
+                <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
+                  <a
+                    className="btn"
+                    href={whatsappShareHref(shareMessageText, shareUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <FontAwesomeIcon icon={faWhatsapp} />
+                    WhatsApp
+                  </a>
+                  <a className="btn" href={mailtoShareHref(list, shareUrl)}>
+                    <FontAwesomeIcon icon={faEnvelope} />
+                    Email
+                  </a>
+                </Can>
+              ) : null}
+              {!isArchived ? (
+                <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setSendOpen(true)}
+                  >
+                    <FontAwesomeIcon icon={faPaperPlane} />
+                    {isSent ? "Resend" : "Send"}
+                  </button>
+                </Can>
+              ) : null}
+              <Can permission={PERMISSIONS.RATE_LISTS_CREATE}>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={duplicateState.isLoading}
+                  onClick={onDuplicate}
+                >
+                  <FontAwesomeIcon icon={faClone} />
+                  Duplicate
+                </button>
+              </Can>
+              <button type="button" className="btn" onClick={() => window.print()}>
+                <FontAwesomeIcon icon={faPrint} />
+                Print
+              </button>
+            </div>
 
-      <div className="detail-toolbar print:hidden">
-        <div className="flex items-center gap-3">
-          <span className="edit-discription mb-0">Status</span>
-          <RateListStatusBadge status={status} compact={false} />
-        </div>
-        <div className="detail-actions">
-          {isSent && <ShareActions list={list} />}
-          {!isArchived && (
-            <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
+            <Can permission={PERMISSIONS.RATE_LISTS_DELETE}>
               <button
                 type="button"
-                className="btn save-changes py-2 px-3"
-                onClick={() => {
-                  if (isLocalhostOrigin()) {
-                    printListPdf(list);
-                    return;
-                  }
-                  setSendOpen(true);
-                }}
+                className="btn rl-detail-archive"
+                disabled={deleteState.isLoading}
+                onClick={onArchiveOrDelete}
               >
-                {isSent ? "Resend" : "Send"}
+                <FontAwesomeIcon icon={isDraft ? faTrash : faBoxArchive} />
+                {isDraft ? "Delete" : "Archive"}
               </button>
             </Can>
-          )}
-          <Can permission={PERMISSIONS.RATE_LISTS_CREATE}>
-            <button
-              type="button"
-              className="btn edit py-2 px-3"
-              disabled={duplicateState.isLoading}
-              onClick={onDuplicate}
-            >
-              Duplicate
-            </button>
-          </Can>
-          <button type="button" className="btn edit py-2 px-3" onClick={() => window.print()}>
-            <FontAwesomeIcon icon={faPrint} className="me-1" />
-            Print
-          </button>
-          <Can permission={PERMISSIONS.RATE_LISTS_DELETE}>
-            <button
-              type="button"
-              className="btn delete py-2 px-3"
-              disabled={deleteState.isLoading}
-              onClick={onArchiveOrDelete}
-            >
-              {isDraft ? "Delete" : "Archive"}
-            </button>
-          </Can>
-        </div>
-      </div>
-
-      <div className="detail-card print:max-w-none print:border-0 print:p-0 print:shadow-none">
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 md:col-span-6">
-            <p className="edit-id">#{list.number}</p>
-            <p className="edit-discription mb-0">{list.title || "Rate list"}</p>
-            {list.notes ? <p className="textcklr mt-2 mb-0">{list.notes}</p> : null}
-          </div>
-          <div className="col-span-12 md:col-span-6 md:text-end">
-            <span className="edit-discription block">Client</span>
-            <span className="date-bill-email block">{list.clientName || `#${list.clientId}`}</span>
-            {list.sentAt && (
-              <>
-                <span className="edit-discription mt-3 block">Sent</span>
-                <span className="date-bill-email block">
-                  {new Date(list.sentAt).toLocaleString()}
-                </span>
-              </>
-            )}
           </div>
         </div>
 
-        <div className="mt-4">
-          <SelectedRatesTable items={list.items || []} readOnly showDifference />
-        </div>
-      </div>
+        {isSent ? (
+          <p className="rl-detail-note print:hidden">
+            Sent lists cannot be edited. Duplicate to make a new draft.
+          </p>
+        ) : null}
+        {isArchived ? (
+          <p className="rl-detail-note print:hidden">
+            This list is archived. Duplicate it to make a new draft.
+          </p>
+        ) : null}
+
+        <CatalogRatesCard
+          products={catalogProducts}
+          search={search}
+          onSearchChange={setSearch}
+          emptyTitle="No products"
+          emptyMessage="This rate list has no products."
+          topSlot={
+            <div className="rl-detail-meta">
+              <div>
+                <div className="rl-detail-id-row">
+                  <p className="edit-id mb-0">#{list.number}</p>
+                  <RateListStatusBadge status={status} compact />
+                </div>
+                <p className="edit-discription mb-0 mt-1">{list.title || "Rate list"}</p>
+                {list.notes ? <p className="textcklr mt-2 mb-0">{list.notes}</p> : null}
+              </div>
+              <div className="rl-detail-meta-side">
+                <span className="edit-discription block">Client</span>
+                <span className="date-bill-email block">{list.clientName || `#${list.clientId}`}</span>
+                {list.sentAt ? (
+                  <span className="textcklr small mt-1 block">
+                    Sent {new Date(list.sentAt).toLocaleString()}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          }
+        />
+      </section>
 
       <SendRateListModal
         open={sendOpen}

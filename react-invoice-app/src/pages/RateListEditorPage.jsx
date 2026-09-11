@@ -11,7 +11,6 @@ import SendRateListModal from "../components/rateLists/SendRateListModal";
 import EmptyState from "../components/ui/EmptyState";
 import { useClients } from "../hooks/useClients";
 import { PERMISSIONS } from "../lib/permissions";
-import { openRateListPrint } from "../lib/rateListPrint";
 import {
   buildRateListItems,
   catalogSelection,
@@ -236,6 +235,39 @@ export default function RateListEditorPage() {
     }
   };
 
+  const persistAndSend = async (options) => {
+    if (!validate()) return null;
+    const saved = await persist();
+    const listId = saved?.id ?? id;
+    const sent = await sendRateList({
+      id: listId,
+      channel: options.channel,
+      expiresAt: options.expiresAt,
+      rotateToken: options.rotateToken,
+    }).unwrap();
+    return { saved, sent, listId, merged: { ...saved, ...sent } };
+  };
+
+  const onSaveAndSend = async () => {
+    if (!validate()) return;
+    if (!isLocalhostOrigin()) {
+      setSendOpen(true);
+      return;
+    }
+    try {
+      const result = await persistAndSend({
+        channel: "whatsapp",
+        expiresAt: null,
+        rotateToken: false,
+      });
+      if (!result) return;
+      toast.success("Rate list sent");
+      navigate(`/rate-lists/${result.listId}`);
+    } catch (err) {
+      handleApiError(err, "Send failed");
+    }
+  };
+
   const confirmAndSend = async (options) => {
     const confirmed = await Swal.fire({
       title: "Send this rate list?",
@@ -247,22 +279,13 @@ export default function RateListEditorPage() {
     });
     if (!confirmed.isConfirmed) return;
 
-    if (!validate()) return;
-
     try {
-      const saved = await persist();
-      const listId = saved?.id ?? id;
-      const sent = await sendRateList({
-        id: listId,
-        channel: options.channel,
-        expiresAt: options.expiresAt,
-        rotateToken: options.rotateToken,
-      }).unwrap();
-      const merged = { ...saved, ...sent };
+      const result = await persistAndSend(options);
+      if (!result) return;
       toast.success("Rate list sent");
       setSendOpen(false);
-      openShare(options.channel, merged);
-      navigate(`/rate-lists/${listId}`);
+      openShare(options.channel, result.merged);
+      navigate(`/rate-lists/${result.listId}`);
     } catch (err) {
       handleApiError(err, "Send failed");
     }
@@ -340,25 +363,7 @@ export default function RateListEditorPage() {
                 type="button"
                 className="btn save-changes px-3 py-2"
                 disabled={saving || !selectedCount}
-                onClick={() => {
-                  if (isLocalhostOrigin()) {
-                    if (!selectedCount) {
-                      toast.error("Select at least one product");
-                      return;
-                    }
-                    const opened = openRateListPrint(selectedItems, {
-                      title: title.trim() || "Rate list",
-                    });
-                    if (!opened) {
-                      toast.error("Print dialog did not open. Try again.");
-                      return;
-                    }
-                    toast.success("Save as PDF, then send it on WhatsApp");
-                    return;
-                  }
-                  if (!validate()) return;
-                  setSendOpen(true);
-                }}
+                onClick={onSaveAndSend}
               >
                 Save & send
               </button>

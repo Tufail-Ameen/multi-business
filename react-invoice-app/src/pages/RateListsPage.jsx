@@ -1,5 +1,5 @@
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
-import { faCopy, faPrint } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faFilePdf, faListUl, faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -140,7 +140,7 @@ export default function RateListsPage() {
   return (
     <div className="clients-page mx-auto w-full max-w-6xl">
       <section className="clients-page-section">
-        <div className="mb-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="rl-detail-nav">
           <div>
             <h1 className="product-list-heading mb-1 !text-[1.35rem] !font-extrabold">
               Rate list
@@ -149,41 +149,47 @@ export default function RateListsPage() {
               These are the rates already set on products. Client lists start from this catalog.
             </p>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <div className="rl-detail-actions">
             <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
               <button
                 type="button"
-                className="btn save-changes w-full py-2 px-3 sm:w-auto"
+                className="btn save-changes"
                 disabled={storeLinkState.isLoading}
                 onClick={() => copyCatalogStoreLink()}
               >
-                <FontAwesomeIcon icon={faCopy} className="me-1" />
+                <FontAwesomeIcon icon={faCopy} />
                 Copy store link
               </button>
-              <button
-                type="button"
-                className="btn edit w-full py-2 px-3 sm:w-auto"
-                disabled={catalogLoading || !catalogProducts.length}
-                onClick={() => {
-                  if (savePdf) {
-                    printCatalogPdf();
-                    return;
-                  }
-                  setSendOpen(true);
-                }}
-              >
-                <FontAwesomeIcon icon={savePdf ? faPrint : faWhatsapp} className="me-1" />
-                {savePdf ? "Save PDF" : "Send rate list"}
-              </button>
             </Can>
-            <Link to="/rate-lists/clients" className="btn save w-full py-2 px-3 sm:w-auto">
-              Client rate lists
-            </Link>
-            <Can permission={PERMISSIONS.RATE_LISTS_CREATE}>
-              <Link to="/rate-lists/new" className="btn save w-full py-2 px-3 sm:w-auto">
-                Use for a client
+            <div className="rl-detail-group">
+              <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={catalogLoading || !catalogProducts.length}
+                  onClick={() => {
+                    if (savePdf) {
+                      printCatalogPdf();
+                      return;
+                    }
+                    setSendOpen(true);
+                  }}
+                >
+                  <FontAwesomeIcon icon={savePdf ? faFilePdf : faWhatsapp} />
+                  {savePdf ? "Save PDF" : "Send rate list"}
+                </button>
+              </Can>
+              <Link to="/rate-lists/clients" className="btn">
+                <FontAwesomeIcon icon={faListUl} />
+                Client rate lists
               </Link>
-            </Can>
+              <Can permission={PERMISSIONS.RATE_LISTS_CREATE}>
+                <Link to="/rate-lists/new" className="btn">
+                  <FontAwesomeIcon icon={faUserPlus} />
+                  Use for a client
+                </Link>
+              </Can>
+            </div>
           </div>
         </div>
 

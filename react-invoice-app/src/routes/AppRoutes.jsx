@@ -9,7 +9,10 @@ import InvoiceDetailPage from "../pages/InvoiceDetailPage";
 import InvoicesPage from "../pages/InvoicesPage";
 import LandingPage from "../pages/LandingPage";
 import LoginPage from "../pages/LoginPage";
+import OrdersPage from "../pages/OrdersPage";
+import OrderDetailPage from "../pages/OrderDetailPage";
 import PublicRateListPage from "../pages/PublicRateListPage";
+import PublicStorePage from "../pages/PublicStorePage";
 import PurchaseDetailPage from "../pages/PurchaseDetailPage";
 import PurchaseFormPage from "../pages/PurchaseFormPage";
 import PurchaseRateDetailPage from "../pages/PurchaseRateDetailPage";
@@ -38,6 +41,7 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/share/rate-lists/:token" element={<PublicRateListPage />} />
+      <Route path="/store/:token" element={<PublicStorePage />} />
 
       <Route element={<GuestOnly />}>
         <Route path="/login" element={<LoginPage />} />
@@ -59,6 +63,22 @@ export default function AppRoutes() {
             element={
               <RequirePermission permission={PERMISSIONS.INVOICES_VIEW}>
                 <InvoiceDetailPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <RequirePermission permission={PERMISSIONS.ORDERS_VIEW}>
+                <OrdersPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/orders/:id"
+            element={
+              <RequirePermission permission={PERMISSIONS.ORDERS_VIEW}>
+                <OrderDetailPage />
               </RequirePermission>
             }
           />

@@ -53,6 +53,7 @@ export function normalizeProduct(product) {
     categoryId: product.categoryId ?? null,
     category: product.category ?? "",
     description: product.description ?? "",
+    imageUrl: product.imageUrl || null,
     purchasePrice,
     salePrice,
     printRate,

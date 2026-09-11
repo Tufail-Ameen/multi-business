@@ -69,6 +69,7 @@ export default function ProductList({
         <thead>
           <tr>
             <th className="col-index text-left">#</th>
+            <th className="text-left">Photo</th>
             <th className="text-left">Name</th>
             <th className="text-left">Category</th>
             <th className="text-left">Purchase</th>
@@ -84,6 +85,11 @@ export default function ProductList({
           {products.map((product, index) => (
             <tr key={product.key || product.id}>
               <td className="col-index text-left">{index + 1}</td>
+              <td className="text-left">
+                <div className="store-thumb store-thumb-sm">
+                  {product.imageUrl ? <img src={product.imageUrl} alt="" /> : <span>—</span>}
+                </div>
+              </td>
               <td className="table-text-size text-left">
                 <button
                   type="button"

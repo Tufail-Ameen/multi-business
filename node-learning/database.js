@@ -56,6 +56,7 @@ function defaultBusinessSettings(businessId) {
     currency: "Rs",
     allowNegativeStock: false,
     invoicePrefix: "INV-",
+    orderPrefix: "ORD-",
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -437,6 +438,10 @@ async function migratePhase4RateLists(db) {
   await syncSystemRolePermissions(db);
 }
 
+async function migratePhase5StoreOrders(db) {
+  await syncSystemRolePermissions(db);
+}
+
 async function ensureIndexes(db) {
   await db.collection("users").createIndex({ id: 1 }, { unique: true });
   await db.collection("users").createIndex({ email: 1 }, { unique: true });
@@ -485,6 +490,7 @@ async function ensureIndexes(db) {
     "supplier_payments",
     "supplier_price_history",
     "rate_lists",
+    "orders",
   ]) {
     await db
       .collection(collectionName)
@@ -585,6 +591,14 @@ async function ensureIndexes(db) {
       partialFilterExpression: { shareToken: { $type: "string" } },
     }
   );
+
+  await db
+    .collection("orders")
+    .createIndex({ businessId: 1, number: 1 }, { unique: true });
+  await db.collection("orders").createIndex({ businessId: 1, clientId: 1 });
+  await db.collection("orders").createIndex({ businessId: 1, status: 1 });
+  await db.collection("orders").createIndex({ businessId: 1, createdAt: -1 });
+  await db.collection("orders").createIndex({ businessId: 1, rateListId: 1 });
 }
 
 async function runMigrations(db, mongoClient) {
@@ -593,6 +607,7 @@ async function runMigrations(db, mongoClient) {
   await migratePhase2Catalog(db);
   await migratePhase3Purchases(db);
   await migratePhase4RateLists(db);
+  await migratePhase5StoreOrders(db);
   await ensureIndexes(db);
 }
 
@@ -609,6 +624,7 @@ module.exports = {
   migratePhase2Catalog,
   migratePhase3Purchases,
   migratePhase4RateLists,
+  migratePhase5StoreOrders,
   syncSystemRolePermissions,
   ensureIndexes,
   runMigrations,

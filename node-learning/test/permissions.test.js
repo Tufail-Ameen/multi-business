@@ -96,6 +96,22 @@ test("inventory manager cannot manage rate lists", () => {
   assert.equal(hasBusinessPermission(role.permissions, "rate_lists.create"), false);
 });
 
+test("invoice operator can convert store orders; booker cannot", () => {
+  const clerk = SYSTEM_ROLE_TEMPLATES.find((r) => r.slug === "invoice_operator");
+  const booker = SYSTEM_ROLE_TEMPLATES.find((r) => r.slug === "order_booker");
+  assert.equal(hasBusinessPermission(clerk.permissions, "orders.view"), true);
+  assert.equal(hasBusinessPermission(clerk.permissions, "orders.convert"), true);
+  assert.equal(hasBusinessPermission(booker.permissions, "orders.create"), true);
+  assert.equal(hasBusinessPermission(booker.permissions, "orders.convert"), false);
+});
+
+test("inventory manager cannot view orders; manager can", () => {
+  const stock = SYSTEM_ROLE_TEMPLATES.find((r) => r.slug === "inventory_manager");
+  const manager = SYSTEM_ROLE_TEMPLATES.find((r) => r.slug === "manager");
+  assert.equal(hasBusinessPermission(stock.permissions, "orders.view"), false);
+  assert.equal(hasBusinessPermission(manager.permissions, "orders.view"), true);
+});
+
 test("all five system role templates are defined", () => {
   assert.deepEqual(
     SYSTEM_ROLE_TEMPLATES.map((r) => r.slug).sort(),

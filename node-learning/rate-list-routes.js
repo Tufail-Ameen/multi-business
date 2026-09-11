@@ -97,6 +97,7 @@ function publicRateList(list, extras = {}) {
     sendChannel: list.sendChannel || null,
     shareToken: list.shareToken || null,
     sharePath: list.shareToken ? `/public/rate-lists/${list.shareToken}` : null,
+    storePath: list.shareToken ? `/public/store/${list.shareToken}` : null,
     expiresAt: list.expiresAt || null,
     createdBy: list.createdBy || null,
     updatedBy: list.updatedBy || null,
@@ -111,7 +112,27 @@ function publicRateListSummary(list) {
   return summary;
 }
 
-function publicShareRateList(list) {
+function publicShareItem(item, product) {
+  const currentStock =
+    product?.currentStock != null
+      ? Number(product.currentStock)
+      : product?.stock != null
+        ? Number(product.stock)
+        : null;
+  return {
+    productId: item.productId,
+    variantId: item.variantId ?? null,
+    productName: item.productName,
+    sku: item.sku || null,
+    unit: item.unit || "pcs",
+    variantName: item.variantName || null,
+    price: toMoney(item.customPrice),
+    imageUrl: product?.imageUrl || null,
+    currentStock,
+  };
+}
+
+function publicShareRateList(list, productsById = new Map()) {
   return {
     number: list.number,
     title: list.title || null,
@@ -120,15 +141,78 @@ function publicShareRateList(list) {
     sentAt: list.sentAt || null,
     expiresAt: list.expiresAt || null,
     items: Array.isArray(list.items)
-      ? list.items.map((item) => ({
-          productName: item.productName,
-          sku: item.sku || null,
-          unit: item.unit || "pcs",
-          variantName: item.variantName || null,
-          price: toMoney(item.customPrice),
-        }))
+      ? list.items.map((item) =>
+          publicShareItem(item, productsById.get(item.productId))
+        )
       : [],
   };
+}
+
+function publicStoreFromRateList(
+  list,
+  { productsById = new Map(), businessName = null, currency = "Rs" } = {}
+) {
+  return {
+    title: list.title || list.number,
+    notes: list.notes || null,
+    clientName: list.clientName || null,
+    businessName: businessName || null,
+    currency,
+    sentAt: list.sentAt || null,
+    expiresAt: list.expiresAt || null,
+    items: Array.isArray(list.items)
+      ? list.items.map((item) => {
+          const product = productsById.get(item.productId);
+          const share = publicShareItem(item, product);
+          return {
+            productId: share.productId,
+            variantId: share.variantId,
+            name: share.productName,
+            sku: share.sku,
+            unit: share.unit,
+            variantName: share.variantName,
+            price: share.price,
+            imageUrl: share.imageUrl,
+            currentStock: share.currentStock,
+            description: product?.description || null,
+          };
+        })
+      : [],
+  };
+}
+
+async function loadProductsForRateList(db, list, { session } = {}) {
+  const ids = [
+    ...new Set(
+      (list.items || [])
+        .map((item) => item.productId)
+        .filter((id) => id != null)
+    ),
+  ];
+  if (!ids.length) return new Map();
+  const products = await db
+    .collection("products")
+    .find({ businessId: list.businessId, id: { $in: ids } }, { session })
+    .toArray();
+  return new Map(products.map((product) => [product.id, product]));
+}
+
+async function loadPublicSentRateList(db, token, AppError) {
+  const shareToken = toOptionalString(token);
+  if (!shareToken) {
+    throw new AppError(404, "SHARE_LINK_NOT_FOUND", "Rate list not found");
+  }
+  const list = await db.collection("rate_lists").findOne({
+    shareToken,
+    status: RATE_LIST_STATUSES.SENT,
+  });
+  if (!list) {
+    throw new AppError(404, "SHARE_LINK_NOT_FOUND", "Rate list not found");
+  }
+  if (list.expiresAt && new Date(list.expiresAt).getTime() < Date.now()) {
+    throw new AppError(410, "SHARE_LINK_EXPIRED", "This rate list link has expired");
+  }
+  return list;
 }
 
 function newShareToken() {
@@ -810,21 +894,9 @@ function registerRateListRoutes({
 
   app.get("/public/rate-lists/:token", async (req, res, next) => {
     try {
-      const token = toOptionalString(req.params.token);
-      if (!token) {
-        throw new AppError(404, "SHARE_LINK_NOT_FOUND", "Rate list not found");
-      }
-      const list = await db.collection("rate_lists").findOne({
-        shareToken: token,
-        status: RATE_LIST_STATUSES.SENT,
-      });
-      if (!list) {
-        throw new AppError(404, "SHARE_LINK_NOT_FOUND", "Rate list not found");
-      }
-      if (list.expiresAt && new Date(list.expiresAt).getTime() < Date.now()) {
-        throw new AppError(410, "SHARE_LINK_EXPIRED", "This rate list link has expired");
-      }
-      res.json({ rateList: publicShareRateList(list) });
+      const list = await loadPublicSentRateList(db, req.params.token, AppError);
+      const productsById = await loadProductsForRateList(db, list);
+      res.json({ rateList: publicShareRateList(list, productsById) });
     } catch (error) {
       next(error);
     }
@@ -834,4 +906,8 @@ function registerRateListRoutes({
 module.exports = {
   RATE_LIST_STATUSES,
   registerRateListRoutes,
+  loadPublicSentRateList,
+  loadProductsForRateList,
+  publicShareRateList,
+  publicStoreFromRateList,
 };

@@ -1,4 +1,5 @@
 import {
+  faBagShopping,
   faBoxesStacked,
   faBuilding,
   faCartShopping,
@@ -20,6 +21,12 @@ export const mainNavLinks = [
     icon: faFileInvoice,
     end: true,
     permission: PERMISSIONS.INVOICES_VIEW,
+  },
+  {
+    to: "/orders",
+    label: "Orders",
+    icon: faBagShopping,
+    permission: PERMISSIONS.ORDERS_VIEW,
   },
   {
     to: "/clients",
@@ -96,6 +103,7 @@ export function getNavSectionLabel(pathname) {
 
 export function getNavPageTitle(pathname) {
   if (pathname.startsWith("/invoices/")) return "Invoice Details";
+  if (pathname.startsWith("/orders/")) return "Order Details";
   if (pathname === "/rate-lists/new") return "New rate list";
   if (pathname === "/rate-lists/clients") return "Client rate lists";
   if (pathname.startsWith("/rate-lists/") && pathname !== "/rate-lists") {

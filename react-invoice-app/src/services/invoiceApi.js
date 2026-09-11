@@ -32,6 +32,7 @@ export const invoiceApi = createApi({
     "Audit",
     "RateList",
     "PurchasePrice",
+    "Order",
   ],
   endpoints: (builder) => ({
     // ---- Auth ----
@@ -73,6 +74,7 @@ export const invoiceApi = createApi({
         "Audit",
         "Business",
         "RateList",
+        "Order",
       ],
     }),
 
@@ -622,6 +624,79 @@ export const invoiceApi = createApi({
       }),
       transformResponse: (response) => response?.rateList ?? response,
     }),
+
+    getPublicStore: builder.query({
+      query: (token) => ({
+        url: `/public/store/${token}`,
+        skipAuth: true,
+      }),
+      transformResponse: (response) => response?.store ?? response,
+    }),
+    placePublicStoreOrder: builder.mutation({
+      query: ({ token, ...body }) => ({
+        url: `/public/store/${token}/orders`,
+        method: "POST",
+        data: body,
+        skipAuth: true,
+      }),
+      transformResponse: (response) => response?.order ?? response,
+    }),
+
+    uploadProductImage: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `/products/${id}/image`,
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Product", id },
+        { type: "Product", id: "LIST" },
+      ],
+    }),
+
+    getOrders: builder.query({
+      query: (params = {}) => ({ url: "/orders", params }),
+      providesTags: (result) =>
+        result?.orders
+          ? [
+              ...result.orders.map(({ id }) => ({ type: "Order", id })),
+              { type: "Order", id: "LIST" },
+            ]
+          : [{ type: "Order", id: "LIST" }],
+    }),
+    getOrder: builder.query({
+      query: (id) => ({ url: `/orders/${id}` }),
+      transformResponse: (response) => response?.order ?? response,
+      providesTags: (result, error, id) => [{ type: "Order", id }],
+    }),
+    createOrder: builder.mutation({
+      query: (body) => ({ url: "/orders", method: "POST", data: body }),
+      invalidatesTags: [{ type: "Order", id: "LIST" }],
+    }),
+    updateOrder: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `/orders/${id}`,
+        method: "PATCH",
+        data: body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Order", id },
+        { type: "Order", id: "LIST" },
+      ],
+    }),
+    convertOrder: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `/orders/${id}/convert`,
+        method: "POST",
+        data: body || {},
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Order", id },
+        { type: "Order", id: "LIST" },
+        { type: "Invoice", id: "LIST" },
+        { type: "Product", id: "LIST" },
+      ],
+    }),
   }),
 });
 
@@ -695,4 +770,12 @@ export const {
   useSendRateListMutation,
   useDuplicateRateListMutation,
   useGetPublicRateListQuery,
+  useGetPublicStoreQuery,
+  usePlacePublicStoreOrderMutation,
+  useUploadProductImageMutation,
+  useGetOrdersQuery,
+  useGetOrderQuery,
+  useCreateOrderMutation,
+  useUpdateOrderMutation,
+  useConvertOrderMutation,
 } = invoiceApi;

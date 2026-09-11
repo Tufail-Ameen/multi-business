@@ -75,6 +75,8 @@ function publicInvoice(invoice) {
     taxTotal: toMoney(invoice.taxTotal),
     total: toMoney(invoice.total),
     stockApplied: invoice.stockApplied === true,
+    sourceOrderId: invoice.sourceOrderId ?? null,
+    sourceRateListId: invoice.sourceRateListId ?? null,
     createdBy: invoice.createdBy || null,
     updatedBy: invoice.updatedBy || null,
     createdAt: invoice.createdAt,
@@ -377,6 +379,106 @@ function allowedStatusTransition(from, to) {
     return to === INVOICE_STATUSES.PAID || to === INVOICE_STATUSES.CANCELLED;
   }
   return false;
+}
+
+
+async function insertInvoiceDocument(
+  db,
+  {
+    businessId,
+    business,
+    userId,
+    client,
+    items,
+    issueDate,
+    dueDate,
+    description,
+    currency,
+    status,
+    sourceOrderId = null,
+    sourceRateListId = null,
+  },
+  AppError,
+  { session } = {}
+) {
+  if (!issueDate || !dueDate) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "issueDate and dueDate are required"
+    );
+  }
+  if (!STATUS_SET.has(status) || status === INVOICE_STATUSES.CANCELLED) {
+    throw new AppError(400, "VALIDATION_ERROR", "Invalid status");
+  }
+  if (!Array.isArray(items) || !items.length) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "At least one invoice item is required"
+    );
+  }
+
+  const normalized = items.map((item) => {
+    const quantity = Number(item.quantity);
+    const unitPrice = toMoney(item.unitPrice);
+    const tax = toOptionalNumber(item.tax) ?? 0;
+    const lineTotal =
+      item.lineTotal != null
+        ? toMoney(item.lineTotal)
+        : calcLineTotal(quantity, unitPrice, tax);
+    return {
+      productId: item.productId,
+      name: item.name,
+      quantity,
+      unitPrice,
+      tax,
+      lineTotal,
+    };
+  });
+
+  const { subtotal, taxTotal, total } = totalsFromItems(normalized);
+  const settings = await ensureBusinessSettings(db, businessId, { session });
+  const id = await nextTenantId(db, "invoices", businessId, { session });
+  const prefix = settings.invoicePrefix || "INV-";
+  const snap = clientSnapshot(client);
+
+  const doc = {
+    id,
+    businessId,
+    number: `${prefix}${id}`,
+    clientId: client.id,
+    clientName: snap.name,
+    clientArea: snap.area,
+    clientPhone: snap.phone,
+    clientEmail: snap.email,
+    clientSnapshot: snap,
+    billFrom: billFromSnapshot(business, settings),
+    issueDate,
+    dueDate,
+    description: description || "",
+    currency: currency || settings.currency || "Rs",
+    status,
+    items: normalized,
+    subtotal,
+    taxTotal,
+    total,
+    stockApplied: false,
+    sourceOrderId,
+    sourceRateListId,
+    createdBy: userId,
+    updatedBy: userId,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  if (statusAppliesStock(status)) {
+    await applyInvoiceStock(db, doc, userId, { session });
+    doc.stockApplied = true;
+  }
+
+  await db.collection("invoices").insertOne(doc, session ? { session } : undefined);
+  return doc;
 }
 
 function registerInvoiceRoutes({
@@ -803,4 +905,6 @@ module.exports = {
   registerInvoiceRoutes,
   publicInvoice,
   INVOICE_STATUSES,
+  insertInvoiceDocument,
+  withOptionalTransaction,
 };

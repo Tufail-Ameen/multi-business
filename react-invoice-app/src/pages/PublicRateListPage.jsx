@@ -137,14 +137,19 @@ export default function PublicRateListPage() {
               </p>
             ) : null}
           </div>
-          <button
-            type="button"
-            className="btn save-changes px-3 py-2 print:hidden"
-            onClick={() => window.print()}
-          >
-            <FontAwesomeIcon icon={faPrint} className="me-1" />
-            Print
-          </button>
+          <div className="flex gap-2 print:hidden">
+            <Link to={`/store/${token}`} className="btn save-changes px-3 py-2">
+              Order now
+            </Link>
+            <button
+              type="button"
+              className="btn edit px-3 py-2"
+              onClick={() => window.print()}
+            >
+              <FontAwesomeIcon icon={faPrint} className="me-1" />
+              Print
+            </button>
+          </div>
         </header>
 
         <table className="w-full table-fixed">

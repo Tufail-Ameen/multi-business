@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const { MongoClient } = require("mongodb");
@@ -25,6 +26,7 @@ const { registerCatalogRoutes } = require("./catalog-routes");
 const { registerPurchaseRoutes } = require("./purchase-routes");
 const { registerRateListRoutes } = require("./rate-list-routes");
 const { registerInvoiceRoutes } = require("./invoice-routes");
+const { registerOrderRoutes } = require("./order-routes");
 const { parseContact } = require("./validation");
 
 class AppError extends Error {
@@ -229,7 +231,15 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
       allowedHeaders: ["Content-Type", "Authorization", "X-Business-Id"],
     })
   );
-  app.use(express.json({ limit: "100kb" }));
+  app.use((req, res, next) => {
+    const isProductImage =
+      req.method === "POST" && /\/products\/[^/]+\/image\/?$/.test(req.path);
+    express.json({ limit: isProductImage ? "2mb" : "100kb" })(req, res, next);
+  });
+  app.use(
+    "/uploads",
+    express.static(process.env.UPLOADS_DIR || path.join(__dirname, "uploads"))
+  );
 
   const authenticate = async (req, _res, next) => {
     try {
@@ -1212,6 +1222,16 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
   registerRateListRoutes({
     app,
     db,
+    AppError,
+    tenantRoute,
+    requirePermission,
+    tenantScope,
+  });
+
+  registerOrderRoutes({
+    app,
+    db,
+    mongoClient,
     AppError,
     tenantRoute,
     requirePermission,

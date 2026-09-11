@@ -21,6 +21,7 @@ import { openRateListPrint } from "../lib/rateListPrint";
 import {
   copyText,
   getRateListShareUrl,
+  getStoreShareUrl,
   isLocalhostOrigin,
   mailtoShareHref,
   rateListStatus,
@@ -48,9 +49,24 @@ function printListPdf(list) {
 }
 
 function ShareActions({ list }) {
+  const storeUrl = getStoreShareUrl(list);
+  const shareUrl = storeUrl || getRateListShareUrl(list);
+
+  const copyStoreLink = async () => {
+    if (!storeUrl) return;
+    const ok = await copyText(storeUrl);
+    toast.success(ok ? "Store link copied" : storeUrl);
+  };
+
   if (isLocalhostOrigin()) {
     return (
       <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
+        {storeUrl ? (
+          <button type="button" className="btn save-changes py-2 px-3" onClick={copyStoreLink}>
+            <FontAwesomeIcon icon={faCopy} className="me-1" />
+            Copy store link
+          </button>
+        ) : null}
         <button type="button" className="btn edit py-2 px-3" onClick={() => printListPdf(list)}>
           <FontAwesomeIcon icon={faPrint} className="me-1" />
           Save PDF
@@ -59,21 +75,20 @@ function ShareActions({ list }) {
     );
   }
 
-  const shareUrl = getRateListShareUrl(list);
   if (!shareUrl) return null;
   const message = shareMessage(list);
 
   const copyLink = async () => {
     const ok = await copyText(shareUrl);
-    toast.success(ok ? "Share link copied" : shareUrl);
+    toast.success(ok ? "Store link copied" : shareUrl);
   };
 
   return (
     <>
       <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
-        <button type="button" className="btn edit py-2 px-3" onClick={copyLink}>
+        <button type="button" className="btn save-changes py-2 px-3" onClick={copyLink}>
           <FontAwesomeIcon icon={faCopy} className="me-1" />
-          Copy link
+          Copy store link
         </button>
         <a
           className="btn edit py-2 px-3"
@@ -154,14 +169,14 @@ export default function RateListDetailPage() {
       const merged = { ...list, ...sent };
       toast.success(isSent ? "Link resent" : "Rate list sent");
       setSendOpen(false);
-      const url = getRateListShareUrl(merged) || shareUrl;
+      const url = getStoreShareUrl(merged) || getRateListShareUrl(merged) || shareUrl;
       if (options.channel === "whatsapp" && url) {
         window.open(whatsappShareHref(shareMessage(merged), url), "_blank", "noopener,noreferrer");
       } else if (options.channel === "email" && url) {
         window.open(mailtoShareHref(merged, url), "_blank", "noopener,noreferrer");
       } else if (url) {
         const ok = await copyText(url);
-        toast.success(ok ? "Share link copied" : url);
+        toast.success(ok ? "Store link copied" : url);
       }
     } catch (err) {
       const code = getErrorCode(err);

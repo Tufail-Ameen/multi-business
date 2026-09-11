@@ -17,6 +17,7 @@ import {
   useAdjustInventoryMutation,
   useCreateCategoryMutation,
   useCreateProductMutation,
+  useUploadProductImageMutation,
   useDeleteCategoryMutation,
   useDeleteProductMutation,
   useGetCategoriesQuery,
@@ -94,6 +95,7 @@ export default function StockPage() {
 
   const [createProduct, createState] = useCreateProductMutation();
   const [updateProduct, updateState] = useUpdateProductMutation();
+  const [uploadProductImage] = useUploadProductImageMutation();
   const [deleteProduct] = useDeleteProductMutation();
   const isSaving = createState.isLoading || updateState.isLoading;
   const [adjustInventory] = useAdjustInventoryMutation();
@@ -121,17 +123,24 @@ export default function StockPage() {
   const saveProduct = async (values, { resetForm }) => {
     const payload = toProductPayload(values);
     try {
+      let saved;
       if (editing) {
-        await updateProduct({ id: editing.id, ...payload }).unwrap();
-        toast.success("Product updated");
+        saved = await updateProduct({ id: editing.id, ...payload }).unwrap();
       } else {
-        await createProduct({
+        saved = await createProduct({
           ...payload,
           openingStock: Number(values.openingStock) || 0,
           sku: payload.sku || `PRD-${Date.now().toString(36).toUpperCase()}`,
         }).unwrap();
-        toast.success("Product added");
       }
+      const productId = saved?.id || saved?.product?.id || editing?.id;
+      if (values.imageBase64 && productId) {
+        await uploadProductImage({
+          id: productId,
+          imageBase64: values.imageBase64,
+        }).unwrap();
+      }
+      toast.success(editing ? "Product updated" : "Product added");
       resetForm();
       closeForm();
     } catch (err) {

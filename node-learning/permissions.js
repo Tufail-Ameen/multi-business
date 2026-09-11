@@ -74,11 +74,12 @@ const BUSINESS_PERMISSIONS = [
   "business.settings",
   "audit.view",
 
-  // Future modules (catalog only until Phase 4+)
   "orders.view",
   "orders.create",
   "orders.update",
   "orders.convert",
+
+  // Future modules
   "reports.view",
 ];
 
@@ -86,7 +87,7 @@ const BUSINESS_PERMISSION_SET = new Set(BUSINESS_PERMISSIONS);
 
 /**
  * Default system roles seeded per business.
- * Permissions for unimplemented APIs are harmless until routes exist.
+ * Default seeded roles for a new business.
  */
 const SYSTEM_ROLE_TEMPLATES = [
   {
@@ -117,6 +118,9 @@ const SYSTEM_ROLE_TEMPLATES = [
       "rate_lists.update",
       "rate_lists.delete",
       "rate_lists.send",
+      "orders.view",
+      "orders.update",
+      "orders.convert",
     ],
     isSystem: true,
   },
@@ -154,7 +158,7 @@ const SYSTEM_ROLE_TEMPLATES = [
   {
     slug: "order_booker",
     name: "Order Booker",
-    description: "Customers and own orders (order APIs in later phases)",
+    description: "Customers, rate lists, and orders",
     permissions: [
       "dashboard.view",
       "clients.view",
@@ -188,6 +192,7 @@ const SYSTEM_ROLE_TEMPLATES = [
       "purchases.view",
       "supplier_payments.view",
       "supplier_ledger.view",
+      "orders.view",
       "reports.view",
     ],
     isSystem: true,

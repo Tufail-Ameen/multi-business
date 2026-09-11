@@ -48,6 +48,8 @@ const emptyProductForm = {
   openingStock: 0,
   description: "",
   status: "active",
+  imageUrl: "",
+  imageBase64: "",
 };
 
 function productToForm(product) {
@@ -66,6 +68,8 @@ function productToForm(product) {
     openingStock: 0,
     description: product.description ?? "",
     status: product.status || "active",
+    imageUrl: product.imageUrl ?? "",
+    imageBase64: "",
   };
 }
 
@@ -93,7 +97,7 @@ export function toProductPayload(values) {
 }
 
 function ProductFormFields({ editing, categories }) {
-  const { values } = useFormikContext();
+  const { values, setFieldValue } = useFormikContext();
   const unitOptions = useMemo(() => {
     const options = [...UNIT_OPTIONS];
     if (values.unit && !options.includes(values.unit)) options.unshift(values.unit);
@@ -272,6 +276,38 @@ function ProductFormFields({ editing, categories }) {
         </div>
       </div>
 
+      <div className="invoice-field md:col-span-2">
+        <label className="invoice-label" htmlFor="product-image">
+          Product photo
+        </label>
+        <div className="flex items-center gap-3">
+          <div className="store-thumb">
+            {values.imageBase64 || values.imageUrl ? (
+              <img src={values.imageBase64 || values.imageUrl} alt="" />
+            ) : (
+              <span>No photo</span>
+            )}
+          </div>
+          <input
+            id="product-image"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="form-control input-settings"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              if (file.size > 1.5 * 1024 * 1024) {
+                event.target.value = "";
+                window.alert("Image must be 1.5MB or smaller");
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => setFieldValue("imageBase64", String(reader.result || ""));
+              reader.readAsDataURL(file);
+            }}
+          />
+        </div>
+      </div>
       <div className="invoice-field">
         <label className="invoice-label" htmlFor="product-description">
           Description

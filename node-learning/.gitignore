@@ -2,3 +2,4 @@
 node_modules
 mongo-data
 .cache
+uploads

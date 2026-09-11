@@ -4,8 +4,10 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 const STATUS_MAP = {
   draft: { label: "Draft", className: "draftbtn", key: 1 },
   pending: { label: "Pending", className: "pendingbtn", key: 2 },
+  placed: { label: "Placed", className: "pendingbtn", key: 2 },
   paid: { label: "Paid", className: "paidbtn", key: 3 },
   confirmed: { label: "Confirmed", className: "paidbtn", key: 3 },
+  converted: { label: "Converted", className: "paidbtn", key: 3 },
   cancelled: { label: "Cancelled", className: "draftbtn", key: 1 },
   active: { label: "Active", className: "paidbtn", key: 3 },
   archived: { label: "Archived", className: "draftbtn", key: 1 },

@@ -105,6 +105,12 @@ export function getRateListShareUrl(rateList) {
   return `${window.location.origin}/share/rate-lists/${token}`;
 }
 
+export function getStoreShareUrl(rateList) {
+  const token = getShareToken(rateList);
+  if (!token) return null;
+  return `${window.location.origin}/store/${token}`;
+}
+
 export function isLocalhostOrigin() {
   const host = window.location.hostname;
   return host === "localhost" || host === "127.0.0.1" || host === "[::1]";

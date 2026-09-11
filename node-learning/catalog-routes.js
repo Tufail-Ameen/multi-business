@@ -12,6 +12,12 @@ const {
   applyMovementTransactional,
   stockFieldsFromQuantity,
 } = require("./stockService");
+const {
+  isAllowedImageUrl,
+  parseImageBase64,
+  saveProductImageBuffer,
+  removeLocalProductImage,
+} = require("./product-image");
 
 function toOptionalString(value) {
   if (value == null) return null;
@@ -44,6 +50,21 @@ function escapeRegex(value) {
 /**
  * Public product DTO — generic fields first; legacy pharma fields kept as aliases.
  */
+
+function parseOptionalImageUrl(value, AppError) {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const url = String(value).trim();
+  if (!isAllowedImageUrl(url)) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "imageUrl must be an http(s) URL or /uploads path"
+    );
+  }
+  return url;
+}
+
 function publicProduct(product, extras = {}) {
   if (!product) return product;
   const currentStock =
@@ -97,6 +118,7 @@ function publicProduct(product, extras = {}) {
     stockStatus,
     status: product.status || "active",
     description: product.description || null,
+    imageUrl: product.imageUrl || null,
     trackVariants: product.trackVariants === true,
     attributes: product.attributes || null,
     // Deprecated aliases (backward compatibility)
@@ -653,6 +675,7 @@ function registerCatalogRoutes({
           ...stockFieldsFromQuantity(0),
           status: normalizeStatus(req.body.status),
           description: toOptionalString(req.body.description),
+          imageUrl: parseOptionalImageUrl(req.body.imageUrl, AppError),
           trackVariants: req.body.trackVariants === true,
           attributes:
             req.body.attributes && typeof req.body.attributes === "object"
@@ -846,6 +869,13 @@ function registerCatalogRoutes({
       if (req.body.description !== undefined) {
         updates.description = toOptionalString(req.body.description);
       }
+      if (req.body.imageUrl !== undefined) {
+        const imageUrl = parseOptionalImageUrl(req.body.imageUrl, AppError);
+        if (existing.imageUrl && existing.imageUrl !== imageUrl) {
+          await removeLocalProductImage(existing.imageUrl);
+        }
+        updates.imageUrl = imageUrl;
+      }
       if (req.body.status !== undefined) {
         updates.status = normalizeStatus(req.body.status);
       }
@@ -933,6 +963,77 @@ function registerCatalogRoutes({
     requirePermission("products.update"),
     updateProductHandler
   );
+
+
+  app.post(
+    "/products/:id/image",
+    ...tenantRoute,
+    requirePermission("products.update"),
+    async (req, res, next) => {
+      try {
+        const filter = {
+          id: Number(req.params.id),
+          ...tenantScope(req),
+        };
+        const existing = await db.collection("products").findOne(filter);
+        if (!existing) {
+          throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found");
+        }
+
+        let imageUrl = null;
+        if (req.body?.imageUrl !== undefined && !req.body?.imageBase64) {
+          imageUrl = parseOptionalImageUrl(req.body.imageUrl, AppError);
+          if (!imageUrl) {
+            throw new AppError(400, "VALIDATION_ERROR", "imageUrl is required");
+          }
+        } else {
+          const parsed = parseImageBase64(req.body?.imageBase64, req.body?.mimeType);
+          if (!parsed) {
+            throw new AppError(
+              400,
+              "VALIDATION_ERROR",
+              "Provide imageUrl or imageBase64"
+            );
+          }
+          try {
+            imageUrl = await saveProductImageBuffer({
+              businessId: req.tenant.businessId,
+              productId: existing.id,
+              mimeType: parsed.mimeType,
+              buffer: parsed.buffer,
+            });
+          } catch (error) {
+            if (error.status && error.code) {
+              throw new AppError(
+                error.status,
+                error.code,
+                error.message,
+                error.details || {}
+              );
+            }
+            throw error;
+          }
+        }
+
+        if (existing.imageUrl && existing.imageUrl !== imageUrl) {
+          await removeLocalProductImage(existing.imageUrl);
+        }
+
+        await db.collection("products").updateOne(filter, {
+          $set: {
+            imageUrl,
+            updatedBy: req.auth.user.id,
+            updatedAt: new Date(),
+          },
+        });
+        const updated = await db.collection("products").findOne(filter);
+        res.json(publicProduct(updated));
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
 
   app.delete(
     "/products/:id",

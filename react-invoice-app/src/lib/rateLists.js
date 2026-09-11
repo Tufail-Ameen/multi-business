@@ -63,6 +63,16 @@ export function catalogSelection(products) {
   return next;
 }
 
+export function matchesRateListQuery(product, query) {
+  const needle = String(query || "").trim().toLowerCase();
+  if (!needle) return true;
+  return [product.name, product.productName, product.sku, product.barcode, product.unit]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .includes(needle);
+}
+
 export function splitCatalogColumns(products) {
   const list = products || [];
   const rows = Math.ceil(list.length / 2);
@@ -107,6 +117,11 @@ export function getRateListShareUrl(rateList) {
 
 export function getStoreShareUrl(rateList) {
   const token = getShareToken(rateList);
+  if (!token) return null;
+  return storeUrlFromToken(token);
+}
+
+export function storeUrlFromToken(token) {
   if (!token) return null;
   return `${window.location.origin}/store/${token}`;
 }

@@ -2,6 +2,8 @@
  * Store orders:
  * GET    /public/store/:token
  * POST   /public/store/:token/orders
+ * GET    /store-link
+ * POST   /store-link
  * GET    /orders
  * GET    /orders/:id
  * POST   /orders
@@ -9,6 +11,7 @@
  * POST   /orders/:id/convert
  */
 
+const crypto = require("crypto");
 const { nextTenantId, ensureBusinessSettings } = require("./database");
 const { writeAuditLog, actorDisplayName } = require("./audit");
 const {
@@ -18,7 +21,6 @@ const {
 } = require("./invoice-routes");
 const {
   RATE_LIST_STATUSES,
-  loadPublicSentRateList,
   loadProductsForRateList,
   publicStoreFromRateList,
 } = require("./rate-list-routes");
@@ -304,6 +306,13 @@ async function hydrateCatalogItems(db, businessId, rawItems, AppError, { session
       "At least one order item is required"
     );
   }
+  if (rawItems.length > 50) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "Orders can include at most 50 items"
+    );
+  }
 
   const items = [];
   for (const raw of rawItems) {
@@ -327,7 +336,7 @@ async function hydrateCatalogItems(db, businessId, rawItems, AppError, { session
     if (!product) {
       throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found");
     }
-    if (product.status === "archived") {
+    if (product.status === "archived" || product.status === "inactive") {
       throw new AppError(
         400,
         "PRODUCT_ARCHIVED",
@@ -414,6 +423,164 @@ async function insertOrderDocument(
   return doc;
 }
 
+function newStoreToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function normalizePhone(value) {
+  return String(value || "").replace(/[^\d+]/g, "");
+}
+
+function productCurrentStock(product) {
+  if (product?.currentStock != null) return Number(product.currentStock);
+  if (product?.stock != null) return Number(product.stock);
+  return null;
+}
+
+function publicStoreFromCatalog(
+  products,
+  { businessName = null, currency = "Rs", title = "Rate list" } = {}
+) {
+  return {
+    kind: "catalog",
+    requiresCustomer: true,
+    title,
+    notes: null,
+    clientName: null,
+    businessName: businessName || null,
+    currency,
+    sentAt: null,
+    expiresAt: null,
+    items: (products || []).map((product) => ({
+      productId: product.id,
+      variantId: null,
+      name: product.name,
+      sku: product.sku || null,
+      unit: product.unit || "pcs",
+      variantName: null,
+      price: productUnitPrice(product),
+      imageUrl: product.imageUrl || null,
+      currentStock: productCurrentStock(product),
+      description: product.description || null,
+    })),
+  };
+}
+
+async function loadCatalogStoreProducts(db, businessId) {
+  return db
+    .collection("products")
+    .find({
+      businessId,
+      $or: [{ status: "active" }, { status: { $exists: false } }, { status: null }],
+    })
+    .sort({ name: 1 })
+    .toArray();
+}
+
+async function resolvePublicStoreSource(db, token, AppError) {
+  const shareToken = toOptionalString(token);
+  if (!shareToken) {
+    throw new AppError(404, "SHARE_LINK_NOT_FOUND", "Store not found");
+  }
+
+  const list = await db.collection("rate_lists").findOne({
+    shareToken,
+    status: RATE_LIST_STATUSES.SENT,
+  });
+  if (list) {
+    if (list.expiresAt && new Date(list.expiresAt).getTime() < Date.now()) {
+      throw new AppError(
+        410,
+        "SHARE_LINK_EXPIRED",
+        "This rate list link has expired"
+      );
+    }
+    return { kind: "rate-list", list, businessId: list.businessId };
+  }
+
+  const settings = await db.collection("business_settings").findOne({
+    catalogStoreToken: shareToken,
+  });
+  if (!settings) {
+    throw new AppError(404, "SHARE_LINK_NOT_FOUND", "Store not found");
+  }
+  return { kind: "catalog", settings, businessId: settings.businessId };
+}
+
+async function ensureCatalogStoreToken(db, businessId, { rotate = false } = {}) {
+  const settings = await ensureBusinessSettings(db, businessId);
+  if (!rotate && settings.catalogStoreToken) {
+    return settings.catalogStoreToken;
+  }
+  const token = newStoreToken();
+  await db.collection("business_settings").updateOne(
+    { businessId },
+    { $set: { catalogStoreToken: token, updatedAt: new Date() } }
+  );
+  return token;
+}
+
+function storeLinkPayload(token) {
+  return {
+    storeToken: token,
+    storePath: `/public/store/${token}`,
+  };
+}
+
+async function ensureStoreCustomer(
+  db,
+  businessId,
+  { name, phone, area },
+  AppError,
+  { session } = {}
+) {
+  const clientName = toOptionalString(name);
+  const clientPhone = normalizePhone(phone);
+  const clientArea = toOptionalString(area) || "";
+  if (!clientName) {
+    throw new AppError(400, "VALIDATION_ERROR", "Name is required");
+  }
+  if (!clientPhone || clientPhone.replace(/\D/g, "").length < 7) {
+    throw new AppError(400, "VALIDATION_ERROR", "A valid phone number is required");
+  }
+
+  const existing = await db.collection("clients").findOne(
+    { businessId, phone: clientPhone },
+    { session }
+  );
+  if (existing) {
+    const updates = { updatedAt: new Date() };
+    if (!existing.name && clientName) updates.name = clientName;
+    if (!existing.area && clientArea) updates.area = clientArea;
+    if (Object.keys(updates).length > 1) {
+      await db.collection("clients").updateOne(
+        { businessId, id: existing.id },
+        { $set: updates },
+        session ? { session } : undefined
+      );
+      return { ...existing, ...updates };
+    }
+    return existing;
+  }
+
+  const now = new Date();
+  const client = {
+    id: await nextTenantId(db, "clients", businessId, { session }),
+    businessId,
+    name: clientName,
+    phone: clientPhone,
+    area: clientArea,
+    address: "",
+    city: "",
+    country: "",
+    source: "store",
+    createdAt: now,
+    updatedAt: now,
+  };
+  await db.collection("clients").insertOne(client, session ? { session } : undefined);
+  return client;
+}
+
 function registerOrderRoutes({
   app,
   db,
@@ -425,17 +592,34 @@ function registerOrderRoutes({
 }) {
   app.get("/public/store/:token", async (req, res, next) => {
     try {
-      const list = await loadPublicSentRateList(db, req.params.token, AppError);
-      const productsById = await loadProductsForRateList(db, list);
+      const source = await resolvePublicStoreSource(db, req.params.token, AppError);
       const business = await db.collection("businesses").findOne({
-        id: list.businessId,
+        id: source.businessId,
       });
-      const settings = await ensureBusinessSettings(db, list.businessId);
+      const settings = await ensureBusinessSettings(db, source.businessId);
+      const extras = {
+        businessName: business?.name || null,
+        currency: settings.currency || "Rs",
+      };
+
+      if (source.kind === "catalog") {
+        const products = await loadCatalogStoreProducts(db, source.businessId);
+        res.json({
+          store: publicStoreFromCatalog(products, {
+            ...extras,
+            title: extras.businessName
+              ? `${extras.businessName} — Rate list`
+              : "Rate list",
+          }),
+        });
+        return;
+      }
+
+      const productsById = await loadProductsForRateList(db, source.list);
       res.json({
-        store: publicStoreFromRateList(list, {
+        store: publicStoreFromRateList(source.list, {
           productsById,
-          businessName: business?.name || null,
-          currency: settings.currency || "Rs",
+          ...extras,
         }),
       });
     } catch (error) {
@@ -445,42 +629,66 @@ function registerOrderRoutes({
 
   app.post("/public/store/:token/orders", async (req, res, next) => {
     try {
-      const list = await loadPublicSentRateList(db, req.params.token, AppError);
-      if (list.status !== RATE_LIST_STATUSES.SENT) {
-        throw new AppError(404, "SHARE_LINK_NOT_FOUND", "Rate list not found");
-      }
-
-      const client = await findClient(db, list.businessId, list.clientId);
-      if (!client) {
-        throw new AppError(404, "CLIENT_NOT_FOUND", "Client not found");
-      }
-
-      const items = await hydrateStoreItems(db, {
-        businessId: list.businessId,
-        rawItems: req.body?.items,
-        priceLines: rateListLineMap(list),
-        AppError,
-      });
+      const source = await resolvePublicStoreSource(db, req.params.token, AppError);
       const notes = toOptionalString(req.body?.notes) || "";
+      let client;
+      let items;
+      let rateList = null;
+
+      if (source.kind === "catalog") {
+        client = await ensureStoreCustomer(
+          db,
+          source.businessId,
+          {
+            name: req.body?.clientName || req.body?.name,
+            phone: req.body?.clientPhone || req.body?.phone,
+            area: req.body?.clientArea || req.body?.area,
+          },
+          AppError
+        );
+        items = await hydrateCatalogItems(
+          db,
+          source.businessId,
+          req.body?.items,
+          AppError
+        );
+      } else {
+        rateList = source.list;
+        client = await findClient(db, rateList.businessId, rateList.clientId);
+        if (!client) {
+          throw new AppError(404, "CLIENT_NOT_FOUND", "Client not found");
+        }
+        items = await hydrateStoreItems(db, {
+          businessId: rateList.businessId,
+          rawItems: req.body?.items,
+          priceLines: rateListLineMap(rateList),
+          AppError,
+        });
+      }
 
       const order = await insertOrderDocument(db, {
-        businessId: list.businessId,
+        businessId: source.businessId,
         client,
         items,
-        rateList: list,
+        rateList,
         source: "store",
         notes,
         createdBy: null,
       });
 
       await writeAuditLog(db, {
-        businessId: list.businessId,
+        businessId: source.businessId,
         actorId: null,
         actorName: client.name || "store",
         action: "ORDER_PLACED",
         entity: "order",
         entityId: order.id,
-        newValues: { number: order.number, total: order.total, source: "store" },
+        newValues: {
+          number: order.number,
+          total: order.total,
+          source: "store",
+          kind: source.kind,
+        },
       });
 
       res.status(201).json({ order: publicStoreOrder(order) });
@@ -488,6 +696,36 @@ function registerOrderRoutes({
       next(error);
     }
   });
+
+  app.get(
+    "/store-link",
+    ...tenantRoute,
+    requirePermission("rate_lists.send"),
+    async (req, res, next) => {
+      try {
+        const token = await ensureCatalogStoreToken(db, req.tenant.businessId);
+        res.json(storeLinkPayload(token));
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  app.post(
+    "/store-link",
+    ...tenantRoute,
+    requirePermission("rate_lists.send"),
+    async (req, res, next) => {
+      try {
+        const token = await ensureCatalogStoreToken(db, req.tenant.businessId, {
+          rotate: req.body?.rotateToken === true,
+        });
+        res.json(storeLinkPayload(token));
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
 
   app.get(
     "/orders",

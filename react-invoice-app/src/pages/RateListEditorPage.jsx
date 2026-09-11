@@ -53,14 +53,9 @@ export default function RateListEditorPage() {
   const [clientError, setClientError] = useState("");
   const [sendOpen, setSendOpen] = useState(false);
 
-  const productParams = useMemo(() => {
-    const params = { status: "active" };
-    if (search.trim()) params.q = search.trim();
-    if (categoryId) params.categoryId = categoryId;
-    return params;
-  }, [search, categoryId]);
-
-  const { data: productsData, isLoading: productsLoading } = useGetProductsQuery(productParams);
+  const { data: productsData, isLoading: productsLoading } = useGetProductsQuery({
+    status: "active",
+  });
   const { data: categoriesData } = useGetCategoriesQuery(undefined, {
     skip: !can(PERMISSIONS.CATEGORIES_VIEW),
   });
@@ -294,7 +289,7 @@ export default function RateListEditorPage() {
 
   if (isEdit && existingLoading) {
     return (
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="clients-page mx-auto w-full max-w-6xl">
         <p className="textcklr">Loading…</p>
       </div>
     );
@@ -307,145 +302,145 @@ export default function RateListEditorPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
-      <button
-        type="button"
-        className="back-link"
-        onClick={() => navigate(isEdit ? "/rate-lists/clients" : "/rate-lists")}
-      >
-        <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
-        Go back
-      </button>
-
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="product-list-heading mb-1 !text-[1.35rem] !font-extrabold">
-            {isEdit ? existing?.number || "Draft" : "New rate list"}
-          </h1>
-          <p className="mb-0 textcklr small">
-            Default rates come from Products. Change a custom rate for this client only.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <span className="textcklr small">
-            {selectedCount} product{selectedCount === 1 ? "" : "s"} selected
-          </span>
-          <Can permission={isEdit ? PERMISSIONS.RATE_LISTS_UPDATE : PERMISSIONS.RATE_LISTS_CREATE}>
+    <div className="clients-page mx-auto w-full max-w-6xl">
+      <section className="clients-page-section">
+        <div className="mb-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
             <button
               type="button"
-              className="btn save px-3 py-2"
-              disabled={saving || !selectedCount}
-              onClick={saveDraft}
+              className="back-link"
+              onClick={() => navigate(isEdit ? "/rate-lists/clients" : "/rate-lists")}
             >
-              Save draft
+              <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
+              Go back
             </button>
-          </Can>
-          <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
-            <button
-              type="button"
-              className="btn save-changes px-3 py-2"
-              disabled={saving || !selectedCount}
-              onClick={() => {
-                if (isLocalhostOrigin()) {
-                  if (!selectedCount) {
-                    toast.error("Select at least one product");
-                    return;
-                  }
-                  const opened = openRateListPrint(selectedItems, {
-                    title: title.trim() || "Rate list",
-                  });
-                  if (!opened) {
-                    toast.error("Print dialog did not open. Try again.");
-                    return;
-                  }
-                  toast.success("Save as PDF, then send it on WhatsApp");
-                  return;
-                }
-                if (!validate()) return;
-                setSendOpen(true);
-              }}
-            >
-              Save & send
-            </button>
-          </Can>
-          {isEdit && (
-            <Can permission={PERMISSIONS.RATE_LISTS_DELETE}>
+            <h1 className="product-list-heading mb-1 !text-[1.35rem] !font-extrabold">
+              {isEdit ? existing?.number || "Draft" : "New rate list"}
+            </h1>
+            <p className="mb-0 textcklr small">
+              Default rates come from Products. Change a custom rate for this client only.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <span className="textcklr small">
+              {selectedCount} product{selectedCount === 1 ? "" : "s"} selected
+            </span>
+            <Can permission={isEdit ? PERMISSIONS.RATE_LISTS_UPDATE : PERMISSIONS.RATE_LISTS_CREATE}>
               <button
                 type="button"
-                className="btn delete px-3 py-2"
-                disabled={deleteState.isLoading}
-                onClick={onDelete}
+                className="btn save px-3 py-2"
+                disabled={saving || !selectedCount}
+                onClick={saveDraft}
               >
-                Delete
+                Save draft
               </button>
             </Can>
-          )}
-        </div>
-      </div>
-
-      <div className="form-card form-card-compact mb-3">
-        <div className="grid grid-cols-12 gap-3">
-          <div className="col-span-12 md:col-span-4">
-            <label className="form-label input-clr" htmlFor="rate-list-client">
-              Client
-            </label>
-            <select
-              id="rate-list-client"
-              className="form-select input-settings"
-              value={clientId}
-              onChange={(e) => {
-                setClientId(e.target.value);
-                setClientError("");
-              }}
-            >
-              <option value="">Select client…</option>
-              {clients.map((client) => (
-                <option key={client.key || client.id} value={String(client.id)}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-            {clientError ? <div className="text-red-600 small">{clientError}</div> : null}
-          </div>
-          <div className="col-span-12 md:col-span-4">
-            <label className="form-label input-clr" htmlFor="rate-list-title">
-              Title (optional)
-            </label>
-            <input
-              id="rate-list-title"
-              className="form-control input-settings"
-              placeholder="Rate list for this client"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-          <div className="col-span-12 md:col-span-4">
-            <label className="form-label input-clr" htmlFor="rate-list-notes">
-              Notes (optional)
-            </label>
-            <input
-              id="rate-list-notes"
-              className="form-control input-settings"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
+            <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
+              <button
+                type="button"
+                className="btn save-changes px-3 py-2"
+                disabled={saving || !selectedCount}
+                onClick={() => {
+                  if (isLocalhostOrigin()) {
+                    if (!selectedCount) {
+                      toast.error("Select at least one product");
+                      return;
+                    }
+                    const opened = openRateListPrint(selectedItems, {
+                      title: title.trim() || "Rate list",
+                    });
+                    if (!opened) {
+                      toast.error("Print dialog did not open. Try again.");
+                      return;
+                    }
+                    toast.success("Save as PDF, then send it on WhatsApp");
+                    return;
+                  }
+                  if (!validate()) return;
+                  setSendOpen(true);
+                }}
+              >
+                Save & send
+              </button>
+            </Can>
+            {isEdit && (
+              <Can permission={PERMISSIONS.RATE_LISTS_DELETE}>
+                <button
+                  type="button"
+                  className="btn delete px-3 py-2"
+                  disabled={deleteState.isLoading}
+                  onClick={onDelete}
+                >
+                  Delete
+                </button>
+              </Can>
+            )}
           </div>
         </div>
-      </div>
 
-      <ProductPicker
-        products={products}
-        isLoading={productsLoading}
-        search={search}
-        categoryId={categoryId}
-        categories={categories}
-        selected={selected}
-        onSearch={setSearch}
-        onCategory={setCategoryId}
-        onToggle={toggleProduct}
-        onToggleVisible={toggleVisible}
-        onSetRate={setRate}
-      />
+        <ProductPicker
+          products={products}
+          isLoading={productsLoading}
+          search={search}
+          categoryId={categoryId}
+          categories={categories}
+          selected={selected}
+          onSearch={setSearch}
+          onCategory={setCategoryId}
+          onToggle={toggleProduct}
+          onToggleVisible={toggleVisible}
+          onSetRate={setRate}
+          topSlot={
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-12 md:col-span-4">
+                <label className="form-label input-clr" htmlFor="rate-list-client">
+                  Client
+                </label>
+                <select
+                  id="rate-list-client"
+                  className="form-select input-settings"
+                  value={clientId}
+                  onChange={(e) => {
+                    setClientId(e.target.value);
+                    setClientError("");
+                  }}
+                >
+                  <option value="">Select client…</option>
+                  {clients.map((client) => (
+                    <option key={client.key || client.id} value={String(client.id)}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+                {clientError ? <div className="text-red-600 small">{clientError}</div> : null}
+              </div>
+              <div className="col-span-12 md:col-span-4">
+                <label className="form-label input-clr" htmlFor="rate-list-title">
+                  Title (optional)
+                </label>
+                <input
+                  id="rate-list-title"
+                  className="form-control input-settings"
+                  placeholder="Rate list for this client"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+              <div className="col-span-12 md:col-span-4">
+                <label className="form-label input-clr" htmlFor="rate-list-notes">
+                  Notes (optional)
+                </label>
+                <input
+                  id="rate-list-notes"
+                  className="form-control input-settings"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
+            </div>
+          }
+        />
+      </section>
 
       <SendRateListModal
         open={sendOpen}

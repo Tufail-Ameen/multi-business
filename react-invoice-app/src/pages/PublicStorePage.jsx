@@ -37,6 +37,8 @@ export default function PublicStorePage() {
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState(() => loadCart(token));
   const [notes, setNotes] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
   const [placed, setPlaced] = useState(null);
 
@@ -44,6 +46,8 @@ export default function PublicStorePage() {
     setCart(loadCart(token));
     setPlaced(null);
     setNotes("");
+    setCustomerName("");
+    setCustomerPhone("");
   }, [token]);
 
   useEffect(() => {
@@ -82,15 +86,29 @@ export default function PublicStorePage() {
     });
   };
 
+  const needsCustomer = store?.requiresCustomer === true || store?.kind === "catalog";
+
   const onPlaceOrder = async () => {
     if (!lines.length) {
       toast.error("Add products to the cart first");
       return;
     }
+    if (needsCustomer) {
+      if (!customerName.trim()) {
+        toast.error("Enter your name");
+        return;
+      }
+      if (customerPhone.replace(/\D/g, "").length < 7) {
+        toast.error("Enter a valid phone number");
+        return;
+      }
+    }
     try {
       const order = await placeOrder({
         token,
         notes: notes.trim() || undefined,
+        clientName: needsCustomer ? customerName.trim() : undefined,
+        clientPhone: needsCustomer ? customerPhone.trim() : undefined,
         items: lines.map((line) => ({
           productId: line.productId,
           quantity: line.quantity,
@@ -169,7 +187,9 @@ export default function PublicStorePage() {
         <div>
           <p className="store-kicker">{store.businessName || "Store"}</p>
           <h1 className="store-title">{store.title || "Order now"}</h1>
-          {store.clientName ? <p className="textcklr m-0">{store.clientName}</p> : null}
+          {store.clientName ? <p className="textcklr m-0">{store.clientName}</p> : (
+            <p className="textcklr m-0">Anyone can order from this list</p>
+          )}
         </div>
         <button
           type="button"
@@ -274,6 +294,32 @@ export default function PublicStorePage() {
                     </li>
                   ))}
                 </ul>
+                {needsCustomer ? (
+                  <div className="store-customer">
+                    <label className="invoice-label" htmlFor="store-customer-name">
+                      Your name
+                    </label>
+                    <input
+                      id="store-customer-name"
+                      className="form-control input-settings"
+                      value={customerName}
+                      onChange={(event) => setCustomerName(event.target.value)}
+                      placeholder="Name"
+                      autoComplete="name"
+                    />
+                    <label className="invoice-label" htmlFor="store-customer-phone">
+                      Phone
+                    </label>
+                    <input
+                      id="store-customer-phone"
+                      className="form-control input-settings"
+                      value={customerPhone}
+                      onChange={(event) => setCustomerPhone(event.target.value)}
+                      placeholder="03xx xxxxxxx"
+                      autoComplete="tel"
+                    />
+                  </div>
+                ) : null}
                 <label className="invoice-label" htmlFor="store-notes">
                   Notes
                 </label>

@@ -560,6 +560,100 @@ test("RBAC: operator can convert; booker cannot; inventory cannot view", async (
   assert.equal(clerkConvert.payload.order.status, "converted");
 });
 
+test("general catalog has a store link anyone can order from", async () => {
+  const tea = await createProduct(ownerA, businessAId, {
+    name: "Catalog Tea",
+    salePrice: 220,
+    openingStock: 15,
+  });
+  const jam = await createProduct(ownerA, businessAId, {
+    name: "Catalog Jam",
+    salePrice: 115,
+    openingStock: 8,
+  });
+  await createProduct(ownerA, businessAId, {
+    name: "Hidden Archived",
+    salePrice: 99,
+    status: "archived",
+  });
+
+  const created = await request("/store-link", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {},
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.payload));
+  assert.ok(created.payload.storeToken);
+  assert.equal(created.payload.storePath, `/public/store/${created.payload.storeToken}`);
+
+  const again = await request("/store-link", {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(again.status, 200);
+  assert.equal(again.payload.storeToken, created.payload.storeToken);
+
+  const store = await request(`/public/store/${created.payload.storeToken}`);
+  assert.equal(store.status, 200, JSON.stringify(store.payload));
+  assert.equal(store.payload.store.kind, "catalog");
+  assert.equal(store.payload.store.requiresCustomer, true);
+  assert.equal(store.payload.store.clientName, null);
+  assert.equal(store.payload.store.businessName, "Orders Alpha");
+  const names = store.payload.store.items.map((item) => item.name);
+  assert.ok(names.includes("Catalog Tea"));
+  assert.ok(names.includes("Catalog Jam"));
+  assert.equal(names.includes("Hidden Archived"), false);
+  const teaItem = store.payload.store.items.find((item) => item.productId === tea.id);
+  assert.equal(teaItem.price, 220);
+
+  const missingCustomer = await request(`/public/store/${created.payload.storeToken}/orders`, {
+    method: "POST",
+    body: { items: [{ productId: tea.id, quantity: 1 }] },
+  });
+  assert.equal(missingCustomer.status, 400);
+
+  const placed = await request(`/public/store/${created.payload.storeToken}/orders`, {
+    method: "POST",
+    body: {
+      clientName: "Walk-in Buyer",
+      clientPhone: "03001112233",
+      items: [
+        { productId: tea.id, quantity: 2 },
+        { productId: jam.id, quantity: 1 },
+      ],
+    },
+  });
+  assert.equal(placed.status, 201, JSON.stringify(placed.payload));
+  assert.equal(placed.payload.order.clientName, "Walk-in Buyer");
+  assert.equal(placed.payload.order.total, 220 * 2 + 115);
+
+  const listed = await request("/orders", {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(listed.status, 200);
+  const found = listed.payload.orders.find((row) => row.id === placed.payload.order.id);
+  assert.ok(found);
+  assert.equal(found.rateListId, null);
+  assert.equal(found.clientPhone, "03001112233");
+
+  const converted = await request(`/orders/${placed.payload.order.id}/convert`, {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {},
+  });
+  assert.equal(converted.status, 201, JSON.stringify(converted.payload));
+  assert.equal(converted.payload.invoice.total, 555);
+
+  const rotated = await request("/store-link", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { rotateToken: true },
+  });
+  assert.equal(rotated.status, 200);
+  assert.notEqual(rotated.payload.storeToken, created.payload.storeToken);
+  const oldLink = await request(`/public/store/${created.payload.storeToken}`);
+  assert.equal(oldLink.status, 404);
+});
+
 async function run() {
   await setup();
   let failed = 0;

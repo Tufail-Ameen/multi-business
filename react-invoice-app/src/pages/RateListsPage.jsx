@@ -1,5 +1,5 @@
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
-import { faPrint } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faPrint } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -19,11 +19,13 @@ import {
   isLocalhostOrigin,
   mailtoShareHref,
   shareMessage,
+  storeUrlFromToken,
   whatsappShareHref,
 } from "../lib/rateLists";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
 import {
   useCreateRateListMutation,
+  useEnsureStoreLinkMutation,
   useGetProductsQuery,
   useSendRateListMutation,
 } from "../services/invoiceApi";
@@ -37,6 +39,7 @@ export default function RateListsPage() {
   const [clientError, setClientError] = useState("");
   const [createRateList, createState] = useCreateRateListMutation();
   const [sendRateList, sendState] = useSendRateListMutation();
+  const [ensureStoreLink, storeLinkState] = useEnsureStoreLinkMutation();
   const sending = createState.isLoading || sendState.isLoading;
 
   const { data: productsData, isLoading: catalogLoading } = useGetProductsQuery(
@@ -65,6 +68,24 @@ export default function RateListsPage() {
       return;
     }
     toast.success("Save as PDF, then send it on WhatsApp");
+  };
+
+  const copyCatalogStoreLink = async ({ openWhatsapp = false } = {}) => {
+    try {
+      const result = await ensureStoreLink({}).unwrap();
+      const url = storeUrlFromToken(result.storeToken);
+      if (!url) {
+        toast.error("Store link missing from server");
+        return;
+      }
+      const copied = await copyText(url);
+      if (openWhatsapp) {
+        window.open(whatsappShareHref("Rate list", url), "_blank", "noopener,noreferrer");
+      }
+      toast.success(copied ? "Store link copied" : url);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Could not create store link"));
+    }
   };
 
   const sendCatalogLink = async (options) => {
@@ -133,6 +154,15 @@ export default function RateListsPage() {
               <button
                 type="button"
                 className="btn save-changes w-full py-2 px-3 sm:w-auto"
+                disabled={storeLinkState.isLoading}
+                onClick={() => copyCatalogStoreLink()}
+              >
+                <FontAwesomeIcon icon={faCopy} className="me-1" />
+                Copy store link
+              </button>
+              <button
+                type="button"
+                className="btn edit w-full py-2 px-3 sm:w-auto"
                 disabled={catalogLoading || !catalogProducts.length}
                 onClick={() => {
                   if (savePdf) {

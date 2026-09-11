@@ -153,6 +153,8 @@ function publicStoreFromRateList(
   { productsById = new Map(), businessName = null, currency = "Rs" } = {}
 ) {
   return {
+    kind: "rate-list",
+    requiresCustomer: false,
     title: list.title || list.number,
     notes: list.notes || null,
     clientName: list.clientName || null,

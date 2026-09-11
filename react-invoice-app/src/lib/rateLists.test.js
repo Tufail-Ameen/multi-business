@@ -2,6 +2,7 @@ import {
   catalogSelection,
   isLocalhostOrigin,
   itemsFromRateList,
+  matchesRateListQuery,
   paginateCatalogProducts,
   productDefaultPrice,
   splitCatalogColumns,
@@ -53,6 +54,16 @@ describe("toMoneyNumber", () => {
   test("returns null for empty values", () => {
     expect(toMoneyNumber(null)).toBe(null);
     expect(toMoneyNumber("")).toBe(null);
+  });
+});
+
+describe("matchesRateListQuery", () => {
+  test("matches name, sku, and barcode", () => {
+    const product = { name: "Archi Cap", sku: "PRD-0007", barcode: "12345", unit: "pcs" };
+    expect(matchesRateListQuery(product, "cap")).toBe(true);
+    expect(matchesRateListQuery(product, "prd-0007")).toBe(true);
+    expect(matchesRateListQuery(product, "12345")).toBe(true);
+    expect(matchesRateListQuery(product, "missing")).toBe(false);
   });
 });
 

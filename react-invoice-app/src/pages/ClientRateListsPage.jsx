@@ -106,17 +106,16 @@ export default function ClientRateListsPage() {
   return (
     <div className="clients-page mx-auto w-full max-w-6xl">
       <section className="clients-page-section">
-        <button
-          type="button"
-          className="back-link mb-3 shrink-0"
-          onClick={() => navigate("/rate-lists")}
-        >
-          <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
-          Go back
-        </button>
-
         <div className="mb-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
+            <button
+              type="button"
+              className="back-link"
+              onClick={() => navigate("/rate-lists")}
+            >
+              <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
+              Go back
+            </button>
             <h1 className="product-list-heading mb-1 !text-[1.35rem] !font-extrabold">
               Client rate lists
             </h1>

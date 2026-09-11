@@ -641,6 +641,16 @@ export const invoiceApi = createApi({
       }),
       transformResponse: (response) => response?.order ?? response,
     }),
+    getStoreLink: builder.query({
+      query: () => ({ url: "/store-link" }),
+    }),
+    ensureStoreLink: builder.mutation({
+      query: (body = {}) => ({
+        url: "/store-link",
+        method: "POST",
+        data: body,
+      }),
+    }),
 
     uploadProductImage: builder.mutation({
       query: ({ id, ...body }) => ({
@@ -772,6 +782,8 @@ export const {
   useGetPublicRateListQuery,
   useGetPublicStoreQuery,
   usePlacePublicStoreOrderMutation,
+  useGetStoreLinkQuery,
+  useEnsureStoreLinkMutation,
   useUploadProductImageMutation,
   useGetOrdersQuery,
   useGetOrderQuery,

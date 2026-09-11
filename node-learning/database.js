@@ -468,6 +468,13 @@ async function ensureIndexes(db) {
   await db
     .collection("business_settings")
     .createIndex({ businessId: 1 }, { unique: true });
+  await db.collection("business_settings").createIndex(
+    { catalogStoreToken: 1 },
+    {
+      unique: true,
+      partialFilterExpression: { catalogStoreToken: { $type: "string" } },
+    }
+  );
   await db.collection("audit_logs").createIndex({ id: 1 }, { unique: true });
   await db
     .collection("audit_logs")

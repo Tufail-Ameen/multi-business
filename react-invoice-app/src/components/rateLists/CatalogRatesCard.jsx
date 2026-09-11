@@ -1,16 +1,6 @@
 import { useMemo } from "react";
-import { formatPrice, productDefaultPrice, splitCatalogColumns } from "../../lib/rateLists";
+import { formatPrice, matchesRateListQuery, productDefaultPrice, splitCatalogColumns } from "../../lib/rateLists";
 import EmptyState from "../ui/EmptyState";
-
-function matchesQuery(product, query) {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  return [product.name, product.sku, product.barcode, product.unit]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-    .includes(needle);
-}
 
 function CatalogColumn({ products, startIndex = 1 }) {
   const cellBorder = "border-0 border-b border-solid border-[#d4cfc4] text-left";
@@ -46,7 +36,7 @@ function CatalogColumn({ products, startIndex = 1 }) {
 
 export default function CatalogRatesCard({ products, isLoading, search = "", onSearchChange }) {
   const visibleProducts = useMemo(
-    () => products.filter((product) => matchesQuery(product, search)),
+    () => products.filter((product) => matchesRateListQuery(product, search)),
     [products, search]
   );
 

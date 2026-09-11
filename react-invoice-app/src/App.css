@@ -921,7 +921,7 @@ textarea {
 .goicon,
 .goicon-position {
   display: flex;
-  justify-content: end;
+  justify-content: flex-end;
   align-items: center;
 }
 
@@ -942,7 +942,7 @@ textarea {
 
 .position-table-btn {
   display: flex;
-  justify-content: end;
+  justify-content: flex-end;
 }
 
 .invoice-card {

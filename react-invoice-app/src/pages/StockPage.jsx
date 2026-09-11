@@ -35,11 +35,6 @@ const adjustSchema = Yup.object({
   reason: Yup.string().trim(),
 });
 
-function formatCell(value) {
-  if (value === null || value === undefined || value === "") return "—";
-  return value;
-}
-
 function formatMovementType(type) {
   if (!type) return "—";
   return String(type)
@@ -74,7 +69,10 @@ export default function StockPage() {
 
   const { products, isLoading } = useProducts(productQueryParams);
   const { data: categoriesData } = useGetCategoriesQuery();
-  const categories = categoriesData?.categories || [];
+  const categories = useMemo(
+    () => categoriesData?.categories || [],
+    [categoriesData]
+  );
   const visibleCategories = useMemo(() => {
     const needle = categorySearch.trim().toLowerCase();
     if (!needle) return categories;

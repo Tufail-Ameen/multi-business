@@ -1288,7 +1288,7 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
 async function start() {
   const uri = process.env.MONGODB_URI;
   if (!uri || uri.includes("<db_password>")) {
-    throw new Error("Set a valid MONGODB_URI in .env");
+    throw new Error("Set a valid MONGODB_URI");
   }
 
   const mongoClient = new MongoClient(uri);
@@ -1298,9 +1298,10 @@ async function start() {
   await runMigrations(db, mongoClient);
 
   const app = createApp({ db, mongoClient });
-  const port = Number(process.env.PORT || 3000);
-  app.listen(port, "127.0.0.1", () => {
-    console.log(`Secure multi-tenant server running on http://127.0.0.1:${port}`);
+  const host = process.env.HOST || "0.0.0.0";
+  const port = Number(process.env.PORT || 5001);
+  app.listen(port, host, () => {
+    console.log(`Secure multi-tenant server running on http://${host}:${port}`);
   });
 }
 

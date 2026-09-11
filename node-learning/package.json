@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node --env-file=.env app.js",
+    "start": "node app.js",
     "dev": "node --watch --env-file=.env app.js",
     "start:http": "node --env-file=.env app-http.js",
     "dev:http": "node --watch --env-file=.env app-http.js",

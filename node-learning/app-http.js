@@ -225,12 +225,28 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
 
   const secrets = getJwtSecrets(jwtSecrets);
   const app = express();
+  const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
   app.use(
     cors({
-      origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+      origin:
+        allowedOrigins.length <= 1
+          ? allowedOrigins[0]
+          : (origin, callback) => {
+              if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+                return;
+              }
+              callback(new Error("Not allowed by CORS"));
+            },
       allowedHeaders: ["Content-Type", "Authorization", "X-Business-Id"],
     })
   );
+  app.get("/health", (_req, res) => {
+    res.json({ ok: true });
+  });
   app.use((req, res, next) => {
     const isProductImage =
       req.method === "POST" && /\/products\/[^/]+\/image\/?$/.test(req.path);
@@ -1285,7 +1301,9 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
   return app;
 }
 
-async function start() {
+async function connectDatabase() {
+  if (globalThis.__invoiceDb) return globalThis.__invoiceDb;
+
   const uri = process.env.MONGODB_URI;
   if (!uri || uri.includes("<db_password>")) {
     throw new Error("Set a valid MONGODB_URI");
@@ -1296,8 +1314,19 @@ async function start() {
   await mongoClient.connect();
   const db = mongoClient.db(process.env.MONGODB_DB || "InvoiceApp");
   await runMigrations(db, mongoClient);
+  globalThis.__invoiceDb = { db, mongoClient };
+  return globalThis.__invoiceDb;
+}
 
-  const app = createApp({ db, mongoClient });
+async function createServerApp() {
+  if (globalThis.__invoiceApp) return globalThis.__invoiceApp;
+  const ctx = await connectDatabase();
+  globalThis.__invoiceApp = createApp(ctx);
+  return globalThis.__invoiceApp;
+}
+
+async function start() {
+  const app = await createServerApp();
   const host = process.env.HOST || "0.0.0.0";
   const port = Number(process.env.PORT || 5001);
   app.listen(port, host, () => {
@@ -1315,6 +1344,7 @@ if (require.main === module) {
 module.exports = {
   AppError,
   createApp,
+  createServerApp,
   buildUserResponse,
   getMembershipContext,
   start,

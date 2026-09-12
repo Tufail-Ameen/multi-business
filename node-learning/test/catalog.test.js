@@ -202,8 +202,10 @@ test("product CRUD + SKU uniqueness per business", async () => {
     headers: tenantHeaders(ownerA, businessAId),
   });
   assert.equal(listed.status, 200);
-  assert.ok(Array.isArray(listed.payload));
-  assert.equal(listed.payload.length, 1);
+  assert.ok(Array.isArray(listed.payload.products));
+  assert.equal(listed.payload.products.length, 1);
+  assert.equal(listed.payload.pagination.page, 1);
+  assert.equal(listed.payload.pagination.per_page, 50);
 
   // Before Business B creates its own product id=1, A's id must be invisible.
   const cross = await request(`/products/${product.payload.id}`, {
@@ -570,7 +572,64 @@ test("product archive on delete", async () => {
   const list = await request("/products", {
     headers: tenantHeaders(ownerA, businessAId),
   });
-  assert.ok(!list.payload.some((p) => p.id === product.payload.id));
+  assert.ok(!list.payload.products.some((p) => p.id === product.payload.id));
+});
+
+test("product list paginates with per_page cap", async () => {
+  const prefix = `Page-${Date.now()}`;
+  for (const name of ["Alpha", "Beta", "Gamma"]) {
+    const created = await request("/products", {
+      method: "POST",
+      headers: tenantHeaders(ownerA, businessAId),
+      body: { name: `${prefix} ${name}`, sku: `${prefix}-${name}` },
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.payload));
+  }
+
+  const page1 = await request(
+    `/products?q=${encodeURIComponent(prefix)}&per_page=2&page=1`,
+    { headers: tenantHeaders(ownerA, businessAId) }
+  );
+  assert.equal(page1.status, 200);
+  assert.equal(page1.payload.products.length, 2);
+  assert.equal(page1.payload.pagination.per_page, 2);
+  assert.equal(page1.payload.pagination.page, 1);
+  assert.equal(page1.payload.pagination.total, 3);
+  assert.equal(page1.payload.pagination.pages, 2);
+
+  const page2 = await request(
+    `/products?q=${encodeURIComponent(prefix)}&per_page=2&page=2`,
+    { headers: tenantHeaders(ownerA, businessAId) }
+  );
+  assert.equal(page2.status, 200);
+  assert.equal(page2.payload.products.length, 1);
+
+  const capped = await request(
+    `/products?q=${encodeURIComponent(prefix)}&per_page=500`,
+    { headers: tenantHeaders(ownerA, businessAId) }
+  );
+  assert.equal(capped.status, 200);
+  assert.equal(capped.payload.pagination.per_page, 100);
+});
+
+test("phase2 catalog product scan is skipped after version flag", async () => {
+  const flag = await db
+    .collection("schema_migrations")
+    .findOne({ _id: "phase2_catalog_product_scan" });
+  assert.equal(flag.version, 1);
+
+  await db.collection("products").insertOne({
+    id: 91001,
+    businessId: businessAId,
+    name: "Unscanned leftover",
+    sku: "SKIP-SCAN-1",
+  });
+
+  await runMigrations(db, client);
+
+  const leftover = await db.collection("products").findOne({ sku: "SKIP-SCAN-1" });
+  assert.equal(leftover.status, undefined);
+  assert.equal(leftover.trackVariants, undefined);
 });
 
 (async () => {

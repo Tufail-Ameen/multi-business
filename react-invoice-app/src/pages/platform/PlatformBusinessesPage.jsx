@@ -28,7 +28,9 @@ const schema = Yup.object({
  */
 export default function PlatformBusinessesPage() {
   const [showForm, setShowForm] = useState(false);
-  const { data, isLoading, isError, error, refetch } = useGetPlatformBusinessesQuery();
+  const { data, isLoading, isError, error, refetch } = useGetPlatformBusinessesQuery({
+    per_page: 100,
+  });
   const [createBusiness] = useCreatePlatformBusinessMutation();
   const [updateBusiness] = useUpdatePlatformBusinessMutation();
   const businesses = data?.businesses || [];

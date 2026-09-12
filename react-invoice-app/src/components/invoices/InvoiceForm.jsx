@@ -37,7 +37,7 @@ function nextQty(current, delta) {
 
 export default function InvoiceForm({ invoice, onClose, onSaved }) {
   const { clients } = useClients();
-  const { data: productsData } = useGetProductsQuery({ per_page: 500, status: "active" });
+  const { data: productsData } = useGetProductsQuery({ per_page: 100, status: "active" });
   const [createInvoice] = useCreateInvoiceMutation();
   const [updateInvoice] = useUpdateInvoiceMutation();
   const [updateStatus] = useUpdateInvoiceStatusMutation();

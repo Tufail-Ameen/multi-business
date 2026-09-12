@@ -24,6 +24,11 @@ const {
   loadProductsForRateList,
   publicStoreFromRateList,
 } = require("./rate-list-routes");
+const {
+  escapeRegex,
+  parseListPagination,
+  paginateFind,
+} = require("./pagination");
 
 const ORDER_STATUSES = Object.freeze({
   PLACED: "placed",
@@ -466,15 +471,33 @@ function publicStoreFromCatalog(
   };
 }
 
-async function loadCatalogStoreProducts(db, businessId) {
-  return db
-    .collection("products")
-    .find({
-      businessId,
-      $or: [{ status: "active" }, { status: { $exists: false } }, { status: null }],
-    })
-    .sort({ name: 1 })
-    .toArray();
+async function loadCatalogStoreProducts(db, businessId, query = {}) {
+  const filter = {
+    businessId,
+    $and: [
+      {
+        $or: [
+          { status: "active" },
+          { status: { $exists: false } },
+          { status: null },
+        ],
+      },
+    ],
+  };
+  const q = String(query.q || query.search || "").trim();
+  if (q) {
+    const rx = { $regex: escapeRegex(q), $options: "i" };
+    filter.$and.push({
+      $or: [{ name: rx }, { sku: rx }, { barcode: rx }, { unit: rx }],
+    });
+  }
+  const paging = parseListPagination(query);
+  const { rows, pagination } = await paginateFind(
+    db.collection("products"),
+    filter,
+    { ...paging, sort: { name: 1 } }
+  );
+  return { products: rows, pagination };
 }
 
 async function resolvePublicStoreSource(db, token, AppError) {
@@ -603,7 +626,11 @@ function registerOrderRoutes({
       };
 
       if (source.kind === "catalog") {
-        const products = await loadCatalogStoreProducts(db, source.businessId);
+        const { products, pagination } = await loadCatalogStoreProducts(
+          db,
+          source.businessId,
+          req.query
+        );
         res.json({
           store: publicStoreFromCatalog(products, {
             ...extras,
@@ -611,6 +638,7 @@ function registerOrderRoutes({
               ? `${extras.businessName} — Rate list`
               : "Rate list",
           }),
+          pagination,
         });
         return;
       }

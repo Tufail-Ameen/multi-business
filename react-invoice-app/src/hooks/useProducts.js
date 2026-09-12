@@ -8,7 +8,7 @@ import { useGetProductsQuery } from "../services/invoiceApi";
  * Usage: const { products, isLoading } = useProducts({ q, lowStock: true })
  */
 export function useProducts(params = {}) {
-  const query = useGetProductsQuery(params);
+  const query = useGetProductsQuery({ per_page: 100, ...params });
 
   useEffect(() => {
     if (query.isError) {

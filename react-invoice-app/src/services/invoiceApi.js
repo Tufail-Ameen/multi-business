@@ -133,7 +133,7 @@ export const invoiceApi = createApi({
 
     // ---- Platform businesses ----
     getPlatformBusinesses: builder.query({
-      query: () => ({ url: "/platform/businesses" }),
+      query: (params = {}) => ({ url: "/platform/businesses", params }),
       providesTags: [{ type: "Business", id: "LIST" }],
     }),
     createPlatformBusiness: builder.mutation({
@@ -161,7 +161,7 @@ export const invoiceApi = createApi({
 
     // ---- Clients (real API: GET returns array, PUT/DELETE use numeric id) ----
     getClients: builder.query({
-      query: () => ({ url: "/clients" }),
+      query: (params = {}) => ({ url: "/clients", params }),
       transformResponse: normalizeClientsResponse,
       providesTags: (result) =>
         result?.clients
@@ -198,7 +198,6 @@ export const invoiceApi = createApi({
       invalidatesTags: [{ type: "Client", id: "LIST" }],
     }),
 
-    // ---- Products (GET /products → raw array from Express) ----
     getProducts: builder.query({
       query: (params = {}) => ({ url: "/products", params }),
       transformResponse: normalizeProductsResponse,
@@ -275,7 +274,7 @@ export const invoiceApi = createApi({
       providesTags: [{ type: "Movement", id: "LIST" }],
     }),
     getLowStock: builder.query({
-      query: () => ({ url: "/inventory/low-stock" }),
+      query: (params = {}) => ({ url: "/inventory/low-stock", params }),
       transformResponse: (response) => ({
         products: (response?.products || []).map(normalizeProduct),
       }),
@@ -403,22 +402,38 @@ export const invoiceApi = createApi({
       invalidatesTags: [{ type: "Supplier", id: "LIST" }],
     }),
     getSupplierLedger: builder.query({
-      query: (id) => ({ url: `/suppliers/${id}/ledger` }),
+      query: (arg) => {
+        if (arg && typeof arg === "object") {
+          const { id, ...params } = arg;
+          return { url: `/suppliers/${id}/ledger`, params };
+        }
+        return { url: `/suppliers/${arg}/ledger`, params: { per_page: 100 } };
+      },
       transformResponse: (response) => ({
         supplier: normalizeSupplier(response?.supplier),
         entries: response?.entries || [],
         summary: response?.summary,
       }),
-      providesTags: (result, error, id) => [
-        { type: "SupplierLedger", id },
-        { type: "Supplier", id },
-      ],
+      providesTags: (result, error, arg) => {
+        const id = arg && typeof arg === "object" ? arg.id : arg;
+        return [
+          { type: "SupplierLedger", id },
+          { type: "Supplier", id },
+        ];
+      },
     }),
     getSupplierPayments: builder.query({
-      query: (id) => ({ url: `/suppliers/${id}/payments` }),
-      providesTags: (result, error, id) => [
-        { type: "SupplierLedger", id: `PAYMENTS-${id}` },
-      ],
+      query: (arg) => {
+        if (arg && typeof arg === "object") {
+          const { id, ...params } = arg;
+          return { url: `/suppliers/${id}/payments`, params };
+        }
+        return { url: `/suppliers/${arg}/payments`, params: { per_page: 100 } };
+      },
+      providesTags: (result, error, arg) => {
+        const id = arg && typeof arg === "object" ? arg.id : arg;
+        return [{ type: "SupplierLedger", id: `PAYMENTS-${id}` }];
+      },
     }),
     createSupplierPayment: builder.mutation({
       query: ({ id, ...body }) => ({
@@ -558,15 +573,24 @@ export const invoiceApi = createApi({
       providesTags: (result, error, id) => [{ type: "RateList", id }],
     }),
     getClientRateLists: builder.query({
-      query: (id) => ({ url: `/clients/${id}/rate-lists` }),
+      query: (arg) => {
+        if (arg && typeof arg === "object") {
+          const { id, ...params } = arg;
+          return { url: `/clients/${id}/rate-lists`, params };
+        }
+        return { url: `/clients/${arg}/rate-lists`, params: { per_page: 100 } };
+      },
       transformResponse: (response) => ({
         rateLists: response?.rateLists || (Array.isArray(response) ? response : []),
         pagination: response?.pagination,
       }),
-      providesTags: (result, error, id) => [
-        { type: "RateList", id: `CLIENT-${id}` },
-        { type: "RateList", id: "LIST" },
-      ],
+      providesTags: (result, error, arg) => {
+        const id = arg && typeof arg === "object" ? arg.id : arg;
+        return [
+          { type: "RateList", id: `CLIENT-${id}` },
+          { type: "RateList", id: "LIST" },
+        ];
+      },
     }),
     createRateList: builder.mutation({
       query: (body) => ({ url: "/rate-lists", method: "POST", data: body }),
@@ -626,11 +650,18 @@ export const invoiceApi = createApi({
     }),
 
     getPublicStore: builder.query({
-      query: (token) => ({
-        url: `/public/store/${token}`,
-        skipAuth: true,
-      }),
-      transformResponse: (response) => response?.store ?? response,
+      query: (arg) => {
+        if (arg && typeof arg === "object") {
+          const { token, ...params } = arg;
+          return { url: `/public/store/${token}`, params, skipAuth: true };
+        }
+        return { url: `/public/store/${arg}`, skipAuth: true };
+      },
+      transformResponse: (response) => {
+        const store = response?.store ?? response;
+        if (!store || typeof store !== "object") return store;
+        return { ...store, pagination: response?.pagination };
+      },
     }),
     placePublicStoreOrder: builder.mutation({
       query: ({ token, ...body }) => ({

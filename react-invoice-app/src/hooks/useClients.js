@@ -10,10 +10,10 @@ import {
 
 /**
  * GET /clients — RTK Query hook wrapper.
- * Usage: const { clients, isLoading, ... } = useClients()
+ * Usage: const { clients, isLoading, ... } = useClients({ q, per_page: 100 })
  */
-export function useClients() {
-  const query = useGetClientsQuery();
+export function useClients(params = {}) {
+  const query = useGetClientsQuery({ per_page: 100, ...params });
 
   useEffect(() => {
     if (query.isError) {

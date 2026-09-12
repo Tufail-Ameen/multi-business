@@ -152,8 +152,8 @@ test("2. Business A can access its own data", async () => {
     headers: tenantHeaders(ownerA, ownerA.user.activeBusinessId),
   });
   assert.equal(list.status, 200);
-  assert.equal(list.payload.length, 1);
-  assert.equal(list.payload[0].name, "Alpha Client");
+  assert.equal(list.payload.clients.length, 1);
+  assert.equal(list.payload.clients[0].name, "Alpha Client");
 });
 
 test("2-phone. Client phone must be 11 digits starting with 03", async () => {
@@ -416,7 +416,7 @@ test("7. Platform Admin can view Business A and B after verified switching", asy
       headers: tenantHeaders(switched.payload.data, expected.id),
     });
     assert.equal(list.status, 200);
-    assert.ok(list.payload.some((item) => item.name === expected.client));
+    assert.ok(list.payload.clients.some((item) => item.name === expected.client));
   }
 });
 

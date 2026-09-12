@@ -30,9 +30,12 @@ function StoreState({ title, message }) {
 
 export default function PublicStorePage() {
   const { token } = useParams();
-  const { data: store, isLoading, isError, error } = useGetPublicStoreQuery(token, {
-    skip: !token,
-  });
+  const { data: store, isLoading, isError, error } = useGetPublicStoreQuery(
+    { token, per_page: 100 },
+    {
+      skip: !token,
+    }
+  );
   const [placeOrder, placeState] = usePlacePublicStoreOrderMutation();
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState(() => loadCart(token));

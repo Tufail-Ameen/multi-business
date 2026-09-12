@@ -6,6 +6,7 @@
 const crypto = require("crypto");
 const { nextTenantId } = require("./database");
 const { writeAuditLog, actorDisplayName } = require("./audit");
+const { parseListPagination, paginateFind } = require("./pagination");
 
 const RATE_LIST_STATUSES = Object.freeze({
   DRAFT: "DRAFT",
@@ -457,18 +458,20 @@ function registerRateListRoutes({
           req.tenant.businessId,
           req.params.clientId
         );
-        const rows = await db
-          .collection("rate_lists")
-          .find({
+        const paging = parseListPagination(req.query);
+        const { rows, pagination } = await paginateFind(
+          db.collection("rate_lists"),
+          {
             ...tenantScope(req),
             clientId: client.id,
-          })
-          .sort({ createdAt: -1 })
-          .toArray();
+          },
+          { ...paging, sort: { createdAt: -1 } }
+        );
         res.json({
           clientId: client.id,
           clientName: client.name || null,
           rateLists: rows.map((row) => publicRateListSummary(row)),
+          pagination,
         });
       } catch (error) {
         next(error);

@@ -28,6 +28,11 @@ const { registerRateListRoutes } = require("./rate-list-routes");
 const { registerInvoiceRoutes } = require("./invoice-routes");
 const { registerOrderRoutes } = require("./order-routes");
 const { parseContact } = require("./validation");
+const {
+  escapeRegex,
+  parseListPagination,
+  paginateFind,
+} = require("./pagination");
 
 class AppError extends Error {
   constructor(status, code, message, details = {}) {
@@ -840,18 +845,18 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
     "/platform/businesses",
     authenticate,
     requirePlatformAdmin,
-    async (_req, res, next) => {
+    async (req, res, next) => {
       try {
-        const businesses = await db
-          .collection("businesses")
-          .find()
-          .sort({ createdAt: -1 })
-          .toArray();
+        const paging = parseListPagination(req.query);
+        const { rows, pagination } = await paginateFind(
+          db.collection("businesses"),
+          {},
+          { ...paging, sort: { createdAt: -1 } }
+        );
         res.json({
           data: {
-            businesses: businesses.map((business) =>
-              publicBusiness(business, null)
-            ),
+            businesses: rows.map((business) => publicBusiness(business, null)),
+            pagination,
           },
         });
       } catch (error) {
@@ -1096,11 +1101,26 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
     requirePermission("clients.view"),
     async (req, res, next) => {
       try {
-        const clients = await db
-          .collection("clients")
-          .find(tenantScope(req))
-          .toArray();
-        res.json(clients);
+        const filter = { ...tenantScope(req) };
+        const q = String(req.query.q || req.query.search || "").trim();
+        if (q) {
+          const rx = { $regex: escapeRegex(q), $options: "i" };
+          filter.$or = [
+            { name: rx },
+            { phone: rx },
+            { area: rx },
+            { address: rx },
+            { city: rx },
+            { country: rx },
+          ];
+        }
+        const paging = parseListPagination(req.query);
+        const { rows, pagination } = await paginateFind(
+          db.collection("clients"),
+          filter,
+          { ...paging, sort: { name: 1 } }
+        );
+        res.json({ clients: rows, pagination });
       } catch (error) {
         next(error);
       }

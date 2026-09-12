@@ -9,7 +9,9 @@ import { useGetAuditLogsQuery } from "../../services/invoiceApi";
  * Backend: GET /audit-logs
  */
 export default function AuditLogPage() {
-  const { data, isLoading, isError, error } = useGetAuditLogsQuery();
+  const { data, isLoading, isError, error } = useGetAuditLogsQuery({
+    per_page: 100,
+  });
   const logs = data?.logs || data?.items || [];
 
   useEffect(() => {

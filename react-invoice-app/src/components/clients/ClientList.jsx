@@ -32,7 +32,9 @@ export default function ClientList({
   canEditPermission,
   canDeletePermission,
 }) {
-  const { clients, isLoading } = useClients();
+  const { clients, isLoading } = useClients(
+    query.trim() ? { q: query.trim() } : {}
+  );
 
   const visibleClients = useMemo(
     () => clients.filter((client) => matchesQuery(client, query)),

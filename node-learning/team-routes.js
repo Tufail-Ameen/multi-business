@@ -5,6 +5,7 @@ const {
 const { writeAuditLog, actorDisplayName } = require("./audit");
 const { hashPassword } = require("./auth");
 const { newId } = require("./database");
+const { parseListPagination, paginateArray, paginateFind } = require("./pagination");
 
 function publicRole(role) {
   return {
@@ -105,7 +106,9 @@ function registerTeamRoutes({
           users.push(publicMember(user, role, membership));
         }
 
-        res.json({ data: { users } });
+        const paging = parseListPagination(req.query);
+        const { rows, pagination } = paginateArray(users, paging);
+        res.json({ data: { users: rows, pagination } });
       } catch (error) {
         next(error);
       }
@@ -613,14 +616,16 @@ function registerTeamRoutes({
     requirePermission("audit.view"),
     async (req, res, next) => {
       try {
-        const limit = Math.min(Number(req.query.per_page) || 100, 200);
-        const logs = await db
-          .collection("audit_logs")
-          .find({ businessId: req.tenant.businessId })
-          .sort({ createdAt: -1 })
-          .limit(limit)
-          .toArray();
-        res.json({ data: { logs } });
+        const paging = parseListPagination(req.query, {
+          defaultLimit: 100,
+          maxLimit: 200,
+        });
+        const { rows, pagination } = await paginateFind(
+          db.collection("audit_logs"),
+          { businessId: req.tenant.businessId },
+          { ...paging, sort: { createdAt: -1 } }
+        );
+        res.json({ data: { logs: rows, pagination } });
       } catch (error) {
         next(error);
       }

@@ -10,9 +10,12 @@ import RateListStatusBadge from "../rateLists/RateListStatusBadge";
 
 export default function ClientRateListsTab({ clientId }) {
   const navigate = useNavigate();
-  const { data, isLoading, isError, error } = useGetClientRateListsQuery(clientId, {
-    skip: !clientId,
-  });
+  const { data, isLoading, isError, error } = useGetClientRateListsQuery(
+    { id: clientId, per_page: 100 },
+    {
+      skip: !clientId,
+    }
+  );
   const [q, setQ] = useState("");
 
   const rateLists = useMemo(() => data?.rateLists || [], [data?.rateLists]);

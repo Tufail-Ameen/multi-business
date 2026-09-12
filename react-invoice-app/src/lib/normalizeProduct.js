@@ -80,6 +80,6 @@ export function normalizeProductsResponse(response) {
     : response?.products ?? response?.data ?? [];
   return {
     products: list.map(normalizeProduct),
-    meta: response?.meta,
+    meta: response?.pagination ?? response?.meta,
   };
 }

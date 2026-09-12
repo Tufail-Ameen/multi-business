@@ -309,11 +309,22 @@ async function syncSystemRolePermissions(db) {
   }
 }
 
+const PHASE2_CATALOG_SCAN_ID = "phase2_catalog_product_scan";
+const PHASE2_CATALOG_SCAN_VERSION = 1;
+
 /**
  * Phase 2: generalize products, backfill stock cache, seed opening movements.
+ * Full collection scan runs once; later cold starts skip via schema_migrations.
  */
 async function migratePhase2Catalog(db) {
   await syncSystemRolePermissions(db);
+
+  const flag = await db
+    .collection("schema_migrations")
+    .findOne({ _id: PHASE2_CATALOG_SCAN_ID });
+  if (flag && Number(flag.version) >= PHASE2_CATALOG_SCAN_VERSION) {
+    return;
+  }
 
   const products = await db.collection("products").find({}).toArray();
 
@@ -421,6 +432,17 @@ async function migratePhase2Catalog(db) {
       createdAt: product.createdAt || new Date(),
     });
   }
+
+  await db.collection("schema_migrations").updateOne(
+    { _id: PHASE2_CATALOG_SCAN_ID },
+    {
+      $set: {
+        version: PHASE2_CATALOG_SCAN_VERSION,
+        completedAt: new Date(),
+      },
+    },
+    { upsert: true }
+  );
 }
 
 /**

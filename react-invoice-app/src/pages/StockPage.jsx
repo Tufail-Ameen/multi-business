@@ -62,13 +62,13 @@ export default function StockPage() {
   };
 
   const productQueryParams = useMemo(() => {
-    const params = {};
+    const params = { per_page: 100 };
     if (search.trim()) params.q = search.trim();
     return params;
   }, [search]);
 
   const { products, isLoading } = useProducts(productQueryParams);
-  const { data: categoriesData } = useGetCategoriesQuery();
+  const { data: categoriesData } = useGetCategoriesQuery({ per_page: 100 });
   const categories = useMemo(
     () => categoriesData?.categories || [],
     [categoriesData]
@@ -86,7 +86,9 @@ export default function StockPage() {
   }, [categories, categorySearch]);
 
   const { data: movementsData } = useGetMovementsQuery(
-    selectedProductId ? { productId: selectedProductId } : {},
+    selectedProductId
+      ? { productId: selectedProductId, per_page: 100 }
+      : { per_page: 100 },
     { skip: tab !== "movements" && !selectedProductId }
   );
   const movements = movementsData?.movements || [];

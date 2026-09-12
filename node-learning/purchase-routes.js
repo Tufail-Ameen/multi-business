@@ -12,6 +12,7 @@ const {
   appendLedgerEntry,
 } = require("./supplierLedgerService");
 const { parseContact } = require("./validation");
+const { parseListPagination, paginateFind } = require("./pagination");
 const {
   getPurchasePriceReport,
   getPurchasePriceDetail,
@@ -787,14 +788,15 @@ function registerPurchaseRoutes({
           throw new AppError(404, "SUPPLIER_NOT_FOUND", "Vendor not found");
         }
 
-        const entries = await db
-          .collection("supplier_ledger_entries")
-          .find({
+        const paging = parseListPagination(req.query);
+        const { rows, pagination } = await paginateFind(
+          db.collection("supplier_ledger_entries"),
+          {
             businessId: req.tenant.businessId,
             supplierId: supplier.id,
-          })
-          .sort({ createdAt: -1, id: -1 })
-          .toArray();
+          },
+          { ...paging, sort: { createdAt: -1, id: -1 } }
+        );
 
         const summary = await getSupplierFinancialSummary(db, {
           businessId: req.tenant.businessId,
@@ -803,8 +805,9 @@ function registerPurchaseRoutes({
 
         res.json({
           supplier: publicSupplier(supplier, summary),
-          entries: entries.map(publicLedgerEntry),
+          entries: rows.map(publicLedgerEntry),
           summary,
+          pagination,
         });
       } catch (error) {
         next(error);
@@ -826,16 +829,20 @@ function registerPurchaseRoutes({
           throw new AppError(404, "SUPPLIER_NOT_FOUND", "Vendor not found");
         }
 
-        const payments = await db
-          .collection("supplier_payments")
-          .find({
+        const paging = parseListPagination(req.query);
+        const { rows, pagination } = await paginateFind(
+          db.collection("supplier_payments"),
+          {
             businessId: req.tenant.businessId,
             supplierId: supplier.id,
-          })
-          .sort({ paymentDate: -1, id: -1 })
-          .toArray();
+          },
+          { ...paging, sort: { paymentDate: -1, id: -1 } }
+        );
 
-        res.json({ payments: payments.map(publicPayment) });
+        res.json({
+          payments: rows.map(publicPayment),
+          pagination,
+        });
       } catch (error) {
         next(error);
       }

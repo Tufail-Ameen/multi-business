@@ -43,7 +43,7 @@ export default function RateListsPage() {
   const sending = createState.isLoading || sendState.isLoading;
 
   const { data: productsData, isLoading: catalogLoading } = useGetProductsQuery(
-    { status: "active" },
+    { status: "active", per_page: 100 },
     { skip: !can(PERMISSIONS.PRODUCTS_VIEW) }
   );
   const catalogProducts = productsData?.products || [];

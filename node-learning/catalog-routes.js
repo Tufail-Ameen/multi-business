@@ -18,6 +18,11 @@ const {
   saveProductImageBuffer,
   removeLocalProductImage,
 } = require("./product-image");
+const {
+  parseListPagination,
+  paginateFind,
+  paginateArray,
+} = require("./pagination");
 
 function toOptionalString(value) {
   if (value == null) return null;
@@ -307,12 +312,13 @@ function registerCatalogRoutes({
         const q = toOptionalString(req.query.q);
         if (q) filter.name = { $regex: escapeRegex(q), $options: "i" };
 
-        const categories = await db
-          .collection("categories")
-          .find(filter)
-          .sort({ name: 1 })
-          .toArray();
-        res.json({ categories: categories.map(publicCategory) });
+        const paging = parseListPagination(req.query);
+        const { rows, pagination } = await paginateFind(
+          db.collection("categories"),
+          filter,
+          { ...paging, sort: { name: 1 } }
+        );
+        res.json({ categories: rows.map(publicCategory), pagination });
       } catch (error) {
         next(error);
       }
@@ -525,14 +531,23 @@ function registerCatalogRoutes({
           ];
         }
 
-        let products = await db
-          .collection("products")
-          .find(filter)
-          .sort({ name: 1 })
-          .toArray();
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const perPage = Math.min(
+          100,
+          Math.max(1, Number(req.query.per_page || req.query.limit) || 50)
+        );
+        const skip = (page - 1) * perPage;
+
+        let total;
+        let products;
 
         if (lowStock) {
-          products = products.filter((p) => {
+          const all = await db
+            .collection("products")
+            .find(filter)
+            .sort({ name: 1 })
+            .toArray();
+          products = all.filter((p) => {
             const current =
               p.currentStock != null ? Number(p.currentStock) : Number(p.stock || 0);
             const min =
@@ -541,10 +556,30 @@ function registerCatalogRoutes({
                 : Number(p.minStock || 0);
             return current < min;
           });
+          total = products.length;
+          products = products.slice(skip, skip + perPage);
+        } else {
+          [total, products] = await Promise.all([
+            db.collection("products").countDocuments(filter),
+            db
+              .collection("products")
+              .find(filter)
+              .sort({ name: 1 })
+              .skip(skip)
+              .limit(perPage)
+              .toArray(),
+          ]);
         }
 
-        // Keep array response for existing RTK clients; also expose wrapped form via Accept not needed.
-        res.json(products.map((p) => publicProduct(p)));
+        res.json({
+          products: products.map((p) => publicProduct(p)),
+          pagination: {
+            page,
+            per_page: perPage,
+            total,
+            pages: Math.ceil(total / perPage) || 1,
+          },
+        });
       } catch (error) {
         next(error);
       }
@@ -568,8 +603,9 @@ function registerCatalogRoutes({
         const low = products
           .map((p) => publicProduct(p))
           .filter((p) => p.currentStock < p.minimumStockLevel);
-
-        res.json({ products: low });
+        const paging = parseListPagination(req.query);
+        const { rows, pagination } = paginateArray(low, paging);
+        res.json({ products: rows, pagination });
       } catch (error) {
         next(error);
       }
@@ -1269,13 +1305,17 @@ function registerCatalogRoutes({
           ];
         }
 
-        const movements = await db
-          .collection("inventory_movements")
-          .find(filter)
-          .sort({ createdAt: -1, id: -1 })
-          .toArray();
+        const paging = parseListPagination(req.query);
+        const { rows, pagination } = await paginateFind(
+          db.collection("inventory_movements"),
+          filter,
+          { ...paging, sort: { createdAt: -1, id: -1 } }
+        );
 
-        res.json({ movements: movements.map(publicMovement) });
+        res.json({
+          movements: rows.map(publicMovement),
+          pagination,
+        });
       } catch (error) {
         next(error);
       }
@@ -1521,7 +1561,9 @@ function registerCatalogRoutes({
         const low = products
           .map((p) => publicProduct(p))
           .filter((p) => p.currentStock < p.minimumStockLevel);
-        res.json({ products: low });
+        const paging = parseListPagination(req.query);
+        const { rows, pagination } = paginateArray(low, paging);
+        res.json({ products: rows, pagination });
       } catch (error) {
         next(error);
       }

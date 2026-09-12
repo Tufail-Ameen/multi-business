@@ -33,7 +33,9 @@ const inviteSchema = Yup.object({
 export default function TeamUsersPage() {
   const { user: currentUser, activeBusiness } = useAuth();
   const [showForm, setShowForm] = useState(false);
-  const { data, isLoading, isError, error, refetch } = useGetUsersQuery();
+  const { data, isLoading, isError, error, refetch } = useGetUsersQuery({
+    per_page: 100,
+  });
   const { data: rolesData } = useGetRolesQuery();
   const [inviteUser] = useInviteUserMutation();
   const [updateUser] = useUpdateUserMutation();

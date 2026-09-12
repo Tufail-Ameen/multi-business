@@ -54,10 +54,14 @@ export default function RateListEditorPage() {
 
   const { data: productsData, isLoading: productsLoading } = useGetProductsQuery({
     status: "active",
+    per_page: 100,
   });
-  const { data: categoriesData } = useGetCategoriesQuery(undefined, {
-    skip: !can(PERMISSIONS.CATEGORIES_VIEW),
-  });
+  const { data: categoriesData } = useGetCategoriesQuery(
+    { per_page: 100 },
+    {
+      skip: !can(PERMISSIONS.CATEGORIES_VIEW),
+    }
+  );
   const {
     data: existing,
     isLoading: existingLoading,

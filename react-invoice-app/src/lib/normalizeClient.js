@@ -17,6 +17,6 @@ export function normalizeClientsResponse(response) {
     : response?.clients ?? response?.data ?? [];
   return {
     clients: list.map(normalizeClient),
-    meta: response?.meta,
+    meta: response?.pagination ?? response?.meta,
   };
 }

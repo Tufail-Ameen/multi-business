@@ -51,7 +51,10 @@ export default function SupplierDetailPage() {
     isLoading: ledgerLoading,
     isError: ledgerError,
     error: ledgerErr,
-  } = useGetSupplierLedgerQuery(id, { skip: !canViewLedger });
+  } = useGetSupplierLedgerQuery(
+    { id, per_page: 100 },
+    { skip: !canViewLedger }
+  );
   const [createPayment] = useCreateSupplierPaymentMutation();
 
   const supplier = supplierData?.supplier;

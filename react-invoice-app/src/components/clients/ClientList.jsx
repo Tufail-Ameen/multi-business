@@ -1,3 +1,4 @@
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useMemo } from "react";
@@ -29,8 +30,10 @@ export default function ClientList({
   onQueryChange,
   onEdit,
   onDelete,
+  onSend,
   canEditPermission,
   canDeletePermission,
+  canSendPermission,
 }) {
   const { clients, isLoading } = useClients(
     query.trim() ? { q: query.trim() } : {}
@@ -50,6 +53,18 @@ export default function ClientList({
     >
       <FontAwesomeIcon icon={faPen} />
       Edit
+    </button>
+  );
+
+  const sendButton = (client) => (
+    <button
+      type="button"
+      className="btn btn-table-whatsapp"
+      onClick={() => onSend?.(client)}
+      title="Send rate list on WhatsApp"
+    >
+      <FontAwesomeIcon icon={faWhatsapp} />
+      WhatsApp
     </button>
   );
 
@@ -86,7 +101,7 @@ export default function ClientList({
     );
   } else {
     body = (
-      <table className="product-table w-full min-w-[48rem] md:min-w-full">
+      <table className="product-table w-full min-w-[56rem] md:min-w-full">
         <thead>
           <tr>
             <th className="col-index text-left">#</th>
@@ -122,6 +137,13 @@ export default function ClientList({
               <td className="cell-muted text-left">{formatCell(client.country)}</td>
               <td className="w-[1%] whitespace-nowrap pl-2 text-right">
                 <div className="table-actions inline-flex justify-end">
+                  {onSend ? (
+                    canSendPermission ? (
+                      <Can permission={canSendPermission}>{sendButton(client)}</Can>
+                    ) : (
+                      sendButton(client)
+                    )
+                  ) : null}
                   {canEditPermission ? (
                     <Can permission={canEditPermission}>{editButton(client)}</Can>
                   ) : (

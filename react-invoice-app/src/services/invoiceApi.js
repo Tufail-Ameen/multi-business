@@ -595,8 +595,9 @@ export const invoiceApi = createApi({
     createRateList: builder.mutation({
       query: (body) => ({ url: "/rate-lists", method: "POST", data: body }),
       transformResponse: (response) => response?.rateList ?? response,
-      invalidatesTags: [
+      invalidatesTags: (result, error, body) => [
         { type: "RateList", id: "LIST" },
+        { type: "RateList", id: `CLIENT-${body.clientId}` },
         { type: "Client", id: "LIST" },
       ],
     }),

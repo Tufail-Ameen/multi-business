@@ -1,36 +1,25 @@
 import { faAngleLeft } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import Swal from "sweetalert2";
 import { useAuth } from "../auth/AuthContext";
 import { Can } from "../auth/guards";
 import ProductPicker from "../components/rateLists/ProductPicker";
-import SendRateListModal from "../components/rateLists/SendRateListModal";
 import EmptyState from "../components/ui/EmptyState";
 import { useClients } from "../hooks/useClients";
 import { PERMISSIONS } from "../lib/permissions";
 import {
   buildRateListItems,
-  catalogSelection,
-  copyText,
-  getRateListShareUrl,
-  isLocalhostOrigin,
   itemFromProduct,
   itemsFromRateList,
-  mailtoShareHref,
-  shareMessage,
-  whatsappShareHref,
 } from "../lib/rateLists";
 import { getErrorCode, getErrorMessage } from "../lib/rtkBaseQuery";
 import {
   useCreateRateListMutation,
-  useDeleteRateListMutation,
   useGetCategoriesQuery,
   useGetProductsQuery,
   useGetRateListQuery,
-  useSendRateListMutation,
   useUpdateRateListMutation,
 } from "../services/invoiceApi";
 
@@ -41,7 +30,6 @@ export default function RateListEditorPage() {
   const [searchParams] = useSearchParams();
   const { can } = useAuth();
   const { clients } = useClients();
-  const seededCatalog = useRef(false);
 
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -50,7 +38,6 @@ export default function RateListEditorPage() {
   const [notes, setNotes] = useState("");
   const [selected, setSelected] = useState({});
   const [clientError, setClientError] = useState("");
-  const [sendOpen, setSendOpen] = useState(false);
 
   const { data: productsData, isLoading: productsLoading } = useGetProductsQuery({
     status: "active",
@@ -71,14 +58,12 @@ export default function RateListEditorPage() {
 
   const [createRateList, createState] = useCreateRateListMutation();
   const [updateRateList, updateState] = useUpdateRateListMutation();
-  const [sendRateList, sendState] = useSendRateListMutation();
-  const [deleteRateList, deleteState] = useDeleteRateListMutation();
 
   const products = useMemo(() => productsData?.products || [], [productsData]);
   const categories = categoriesData?.categories || [];
   const selectedItems = useMemo(() => Object.values(selected), [selected]);
   const selectedCount = selectedItems.length;
-  const saving = createState.isLoading || updateState.isLoading || sendState.isLoading;
+  const saving = createState.isLoading || updateState.isLoading;
 
   useEffect(() => {
     if (isError) toast.error(getErrorMessage(error, "Rate list not found"));
@@ -93,12 +78,6 @@ export default function RateListEditorPage() {
     // Hydrate once per list so a refetch does not wipe in-progress edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existing?.id]);
-
-  useEffect(() => {
-    if (isEdit || seededCatalog.current || !products.length) return;
-    seededCatalog.current = true;
-    setSelected((prev) => (Object.keys(prev).length ? prev : catalogSelection(products)));
-  }, [isEdit, products]);
 
   const toggleProduct = (product) => {
     const key = String(product.id);
@@ -211,106 +190,18 @@ export default function RateListEditorPage() {
   const saveDraft = async () => {
     if (!validate()) return null;
     try {
-      const result = await persist();
-      toast.success(isEdit ? "Draft updated" : "Draft saved");
-      const nextId = result?.id ?? id;
-      if (!isEdit && nextId) navigate(`/rate-lists/${nextId}`);
-      return result;
+      await persist();
+      toast.success("Saved");
+      const shop =
+        clients.find((row) => String(row.id) === String(clientId)) || {
+          id: Number(clientId),
+          name: existing?.clientName || "",
+        };
+      navigate("/clients", { state: { sendClient: shop } });
+      return shop;
     } catch (err) {
       handleApiError(err, "Save failed");
       return null;
-    }
-  };
-
-  const openShare = (channel, list) => {
-    const shareUrl = getRateListShareUrl(list);
-    if (!shareUrl) return;
-    const message = shareMessage(list);
-    if (channel === "whatsapp") {
-      window.open(whatsappShareHref(message, shareUrl), "_blank", "noopener,noreferrer");
-    }
-    if (channel === "email") {
-      window.open(mailtoShareHref(list, shareUrl), "_blank", "noopener,noreferrer");
-    }
-    if (channel === "link") {
-      copyText(shareUrl).then((ok) => {
-        toast.success(ok ? "Share link copied" : shareUrl);
-      });
-    }
-  };
-
-  const persistAndSend = async (options) => {
-    if (!validate()) return null;
-    const saved = await persist();
-    const listId = saved?.id ?? id;
-    const sent = await sendRateList({
-      id: listId,
-      channel: options.channel,
-      expiresAt: options.expiresAt,
-      rotateToken: options.rotateToken,
-    }).unwrap();
-    return { saved, sent, listId, merged: { ...saved, ...sent } };
-  };
-
-  const onSaveAndSend = async () => {
-    if (!validate()) return;
-    if (!isLocalhostOrigin()) {
-      setSendOpen(true);
-      return;
-    }
-    try {
-      const result = await persistAndSend({
-        channel: "whatsapp",
-        expiresAt: null,
-        rotateToken: false,
-      });
-      if (!result) return;
-      toast.success("Rate list sent");
-      navigate(`/rate-lists/${result.listId}`);
-    } catch (err) {
-      handleApiError(err, "Send failed");
-    }
-  };
-
-  const confirmAndSend = async (options) => {
-    const confirmed = await Swal.fire({
-      title: "Send this rate list?",
-      text: "The client will receive a share link.",
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Send",
-      confirmButtonColor: "#2d6a56",
-    });
-    if (!confirmed.isConfirmed) return;
-
-    try {
-      const result = await persistAndSend(options);
-      if (!result) return;
-      toast.success("Rate list sent");
-      setSendOpen(false);
-      openShare(options.channel, result.merged);
-      navigate(`/rate-lists/${result.listId}`);
-    } catch (err) {
-      handleApiError(err, "Send failed");
-    }
-  };
-
-  const onDelete = async () => {
-    const result = await Swal.fire({
-      title: "Delete this draft?",
-      text: "This cannot be undone.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Delete",
-      confirmButtonColor: "#c23b3b",
-    });
-    if (!result.isConfirmed) return;
-    try {
-      await deleteRateList(id).unwrap();
-      toast.success("Draft deleted");
-      navigate("/rate-lists/clients");
-    } catch (err) {
-      toast.error(getErrorMessage(err, "Delete failed"));
     }
   };
 
@@ -345,7 +236,7 @@ export default function RateListEditorPage() {
               {isEdit ? existing?.number || "Draft" : "New rate list"}
             </h1>
             <p className="mb-0 textcklr small">
-              Default rates come from Products. Change a custom rate for this client only.
+              Tick only the products this shop buys. Custom rates stay on this client.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -355,35 +246,13 @@ export default function RateListEditorPage() {
             <Can permission={isEdit ? PERMISSIONS.RATE_LISTS_UPDATE : PERMISSIONS.RATE_LISTS_CREATE}>
               <button
                 type="button"
-                className="btn save px-3 py-2"
+                className="btn save-changes px-3 py-2"
                 disabled={saving || !selectedCount}
                 onClick={saveDraft}
               >
-                Save draft
+                Save
               </button>
             </Can>
-            <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
-              <button
-                type="button"
-                className="btn save-changes px-3 py-2"
-                disabled={saving || !selectedCount}
-                onClick={onSaveAndSend}
-              >
-                Save & send
-              </button>
-            </Can>
-            {isEdit && (
-              <Can permission={PERMISSIONS.RATE_LISTS_DELETE}>
-                <button
-                  type="button"
-                  className="btn delete px-3 py-2"
-                  disabled={deleteState.isLoading}
-                  onClick={onDelete}
-                >
-                  Delete
-                </button>
-              </Can>
-            )}
           </div>
         </div>
 
@@ -450,16 +319,6 @@ export default function RateListEditorPage() {
           }
         />
       </section>
-
-      <SendRateListModal
-        open={sendOpen}
-        onClose={() => {
-          setSendOpen(false);
-        }}
-        onSend={confirmAndSend}
-        sending={saving}
-        showRotate={false}
-      />
     </div>
   );
 }

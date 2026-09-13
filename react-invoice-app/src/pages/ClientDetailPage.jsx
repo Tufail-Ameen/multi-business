@@ -1,3 +1,4 @@
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { faAngleLeft } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useEffect, useState } from "react";
@@ -5,6 +6,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Can } from "../auth/guards";
 import ClientRateListsTab from "../components/clients/ClientRateListsTab";
+import SendClientRateListModal from "../components/clients/SendClientRateListModal";
 import EmptyState from "../components/ui/EmptyState";
 import { PERMISSIONS } from "../lib/permissions";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
@@ -19,6 +21,7 @@ export default function ClientDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [tab, setTab] = useState("details");
+  const [sendOpen, setSendOpen] = useState(false);
   const { data, isLoading, isError, error } = useGetClientQuery(id);
   const client = data?.client;
 
@@ -52,6 +55,16 @@ export default function ClientDetailPage() {
           <p className="count-invoices-tect mb-1">{client.name}</p>
           <p className="textcklr small mb-0">{formatCell(client.phone)}</p>
         </div>
+        <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
+          <button
+            type="button"
+            className="btn save-changes py-2 px-3"
+            onClick={() => setSendOpen(true)}
+          >
+            <FontAwesomeIcon icon={faWhatsapp} />
+            Send rate list
+          </button>
+        </Can>
       </div>
 
       <nav className="stock-tab-nav mb-4" aria-label="Client sections">
@@ -105,6 +118,10 @@ export default function ClientDetailPage() {
       )}
 
       {tab === "rate-lists" && <ClientRateListsTab clientId={id} />}
+
+      {sendOpen ? (
+        <SendClientRateListModal client={client} onClose={() => setSendOpen(false)} />
+      ) : null}
     </div>
   );
 }

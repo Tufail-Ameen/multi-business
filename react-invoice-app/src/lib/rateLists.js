@@ -198,17 +198,88 @@ export function shareMessage(rateList) {
   return `${title}${client}`;
 }
 
+export function whatsappDigits(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("00")) return digits.slice(2);
+  if (digits.startsWith("92")) return digits;
+  if (digits.startsWith("0")) return `92${digits.slice(1)}`;
+  return digits;
+}
+
+export function formatCatalogLine(product) {
+  const name = product?.name || product?.productName || "";
+  const unit = product?.unit || "pcs";
+  const price =
+    toMoneyNumber(product?.customPrice ?? product?.price) ?? productDefaultPrice(product);
+  return `${name} — ${unit} — ${formatPrice(price)}`;
+}
+
+export function rateListItemsForMessage(items) {
+  return (items || [])
+    .map((item) => ({
+      name: item.productName || item.name,
+      productName: item.productName || item.name,
+      unit: item.unit || "pcs",
+      customPrice: item.customPrice ?? item.price,
+      salePrice: item.defaultPrice ?? item.salePrice,
+    }))
+    .filter((item) => item.name);
+}
+
+export function pickSendableRateList(rateLists) {
+  const open = (rateLists || []).filter(
+    (list) => String(list?.status || "DRAFT").toUpperCase() !== "ARCHIVED"
+  );
+  if (!open.length) return null;
+  return [...open].sort((a, b) => {
+    const aTime = new Date(a.updatedAt || a.sentAt || a.createdAt || 0).getTime();
+    const bTime = new Date(b.updatedAt || b.sentAt || b.createdAt || 0).getTime();
+    return bTime - aTime;
+  })[0];
+}
+
+export function clientOutreachMessage({
+  clientName,
+  businessName,
+  shareUrl,
+  products = [],
+} = {}) {
+  const shop = String(clientName || "").trim();
+  const brand = String(businessName || "").trim() || "Hamari shop";
+  const greeting = shop ? `Assalamualaikum ${shop},` : "Assalamualaikum,";
+  const lines = [greeting, "", `${brand} ki latest rates:`];
+  const catalog = (products || []).map(formatCatalogLine).filter(Boolean);
+  if (catalog.length) {
+    lines.push("", ...catalog);
+  }
+  if (shareUrl) {
+    lines.push("", `Order: ${shareUrl}`);
+  }
+  return lines.join("\n");
+}
+
 export function catalogShareMessage(products) {
-  const lines = (products || []).map((product) => {
-    const unit = product.unit || "pcs";
-    return `${product.name} — ${unit} — ${formatPrice(productDefaultPrice(product))}`;
-  });
+  const lines = (products || []).map(formatCatalogLine);
   return ["Rate list", "", ...lines].join("\n");
 }
 
-export function whatsappShareHref(message, shareUrl) {
+export const WHATSAPP_HREF_MAX_LENGTH = 2000;
+
+export function whatsappShareHref(message, shareUrl, phone) {
   const text = shareUrl ? `${message}\n${shareUrl}` : message;
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  const digits = whatsappDigits(phone);
+  const path = digits ? `/${digits}` : "/";
+  const encoded = text ? `?text=${encodeURIComponent(text)}` : "";
+  return `https://wa.me${path}${encoded}`;
+}
+
+export function whatsappPrefillHref(message, phone) {
+  const href = whatsappShareHref(message, "", phone);
+  if (href.length <= WHATSAPP_HREF_MAX_LENGTH) {
+    return { href, mode: "prefill" };
+  }
+  return { href: whatsappShareHref("", "", phone), mode: "paste" };
 }
 
 export function mailtoShareHref(rateList, shareUrl) {

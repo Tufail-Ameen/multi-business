@@ -1144,7 +1144,8 @@ textarea {
 
 .btn-table-edit,
 .btn-table-remove,
-.btn-table-paid {
+.btn-table-paid,
+.btn-table-whatsapp {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1221,6 +1222,27 @@ textarea {
 .btn-table-paid:disabled:hover {
   background: var(--color-paid-soft);
   color: var(--color-paid);
+}
+
+.btn-table-whatsapp {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.btn-table-whatsapp:hover {
+  background: #059669;
+  color: #fff;
+}
+
+.btn-table-whatsapp:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.btn-table-whatsapp:disabled:hover {
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .status-badge {
@@ -2799,6 +2821,128 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   width: min(520px, 100%);
   max-height: 90vh;
   overflow: auto;
+}
+
+.send-rate-modal {
+  width: min(760px, calc(100vw - 2rem));
+  max-height: min(860px, calc(100dvh - 2rem));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 1.15rem 1.25rem 1rem;
+}
+
+.send-rate-modal-head,
+.send-rate-modal-foot,
+.send-rate-modal-select {
+  flex-shrink: 0;
+}
+
+.send-rate-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1.5rem;
+  margin-top: 0.85rem;
+}
+
+.send-rate-modal-select {
+  margin: 0.85rem 0 0;
+}
+
+.send-rate-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0.9rem 0 1rem;
+}
+
+.send-rate-sheet {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface-2);
+  padding: 0.75rem 0.9rem 0.55rem;
+}
+
+.send-rate-greeting {
+  margin: 0 0 0.55rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--color-text);
+}
+
+.send-rate-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1.35rem;
+}
+
+.send-rate-grid-single {
+  grid-template-columns: 1fr;
+}
+
+.send-rate-col + .send-rate-col {
+  border-left: 1px solid var(--color-border);
+  padding-left: 1.35rem;
+}
+
+.send-rate-row {
+  display: grid;
+  grid-template-columns: 1.4rem minmax(0, 1fr) auto auto;
+  gap: 0.4rem;
+  align-items: baseline;
+  padding: 0.38rem 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+
+.send-rate-col .send-rate-row:last-child {
+  border-bottom: 0;
+}
+
+.send-rate-index {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.send-rate-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 650;
+  color: var(--color-text);
+}
+
+.send-rate-unit {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.send-rate-price {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+
+.send-rate-modal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 700px) {
+  .send-rate-meta,
+  .send-rate-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .send-rate-col + .send-rate-col {
+    border-left: 0;
+    padding-left: 0;
+  }
 }
 
 .rbac-table th {

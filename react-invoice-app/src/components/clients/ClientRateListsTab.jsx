@@ -39,8 +39,8 @@ export default function ClientRateListsTab({ clientId }) {
     body = (
       <EmptyState
         className="!border-0 !bg-transparent !shadow-none"
-        title="No rate lists yet"
-        message="Create a list with custom rates for this client."
+        title="No products assigned"
+        message="Tick the products this shop buys, then save."
       />
     );
   } else {
@@ -94,7 +94,7 @@ export default function ClientRateListsTab({ clientId }) {
             to={`/rate-lists/new?clientId=${encodeURIComponent(clientId)}`}
             className="btn save-changes w-full px-3 py-2 sm:w-auto"
           >
-            New rate list
+            Assign items
           </Link>
         </Can>
       </div>

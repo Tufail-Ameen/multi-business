@@ -1,12 +1,19 @@
 import {
   catalogSelection,
+  clientOutreachMessage,
+  formatCatalogLine,
   isLocalhostOrigin,
   itemsFromRateList,
   matchesRateListQuery,
   paginateCatalogProducts,
+  pickSendableRateList,
   productDefaultPrice,
+  rateListItemsForMessage,
   splitCatalogColumns,
   toMoneyNumber,
+  whatsappDigits,
+  whatsappPrefillHref,
+  whatsappShareHref,
 } from "./rateLists";
 import { toPrintRow } from "./rateListPrint";
 
@@ -116,5 +123,114 @@ describe("toPrintRow", () => {
       unit: "dz",
       salePrice: 55,
     });
+  });
+});
+
+describe("whatsappDigits", () => {
+  test("converts Pakistani 03 numbers to 92", () => {
+    expect(whatsappDigits("03001234001")).toBe("923001234001");
+    expect(whatsappDigits("0315-1234016")).toBe("923151234016");
+  });
+
+  test("keeps international digits", () => {
+    expect(whatsappDigits("923001234001")).toBe("923001234001");
+    expect(whatsappDigits("00923001234001")).toBe("923001234001");
+  });
+
+  test("returns empty for missing phone", () => {
+    expect(whatsappDigits("")).toBe("");
+    expect(whatsappDigits(null)).toBe("");
+  });
+});
+
+describe("whatsappShareHref", () => {
+  test("opens a blank chat when no phone is given", () => {
+    expect(whatsappShareHref("Hello", "https://example.com/store/ab")).toBe(
+      `https://wa.me/?text=${encodeURIComponent("Hello\nhttps://example.com/store/ab")}`
+    );
+  });
+
+  test("opens that client's WhatsApp chat", () => {
+    const href = whatsappShareHref("Rate list", "", "03001234001");
+    expect(href.startsWith("https://wa.me/923001234001?text=")).toBe(true);
+    expect(href).toContain(encodeURIComponent("Rate list"));
+  });
+});
+
+describe("clientOutreachMessage", () => {
+  test("includes shop, rates, and store link", () => {
+    const message = clientOutreachMessage({
+      clientName: "Adnan Face Wash Hub",
+      businessName: "Archi",
+      shareUrl: "https://example.com/store/ab",
+      products: [{ name: "Archi Cap", unit: "pcs", salePrice: 45 }],
+    });
+    expect(message).toContain("Assalamualaikum Adnan Face Wash Hub,");
+    expect(message).toContain("Archi ki latest rates:");
+    expect(message).toContain("Archi Cap — pcs — Rs 45");
+    expect(message).toContain("Order: https://example.com/store/ab");
+  });
+
+  test("includes every assigned item, not a 20-item cap", () => {
+    const products = Array.from({ length: 24 }, (_, index) => ({
+      name: `Item ${index + 1}`,
+      unit: "pcs",
+      salePrice: 10,
+    }));
+    const message = clientOutreachMessage({
+      clientName: "Akram Wholesale",
+      products,
+    });
+    expect(message).toContain("Item 1 — pcs — Rs 10");
+    expect(message).toContain("Item 24 — pcs — Rs 10");
+    expect(message).not.toContain("Aur ");
+    expect(message).not.toContain("PDF");
+  });
+});
+
+describe("formatCatalogLine", () => {
+  test("formats name, unit, and sale price", () => {
+    expect(formatCatalogLine({ name: "Archi Cap", unit: "pcs", salePrice: 45 })).toBe(
+      "Archi Cap — pcs — Rs 45"
+    );
+  });
+
+  test("prefers the client's custom rate", () => {
+    expect(
+      formatCatalogLine({
+        productName: "Soap",
+        unit: "dz",
+        customPrice: 1300,
+        salePrice: 1250,
+      })
+    ).toBe("Soap — dz — Rs 1,300");
+  });
+});
+
+describe("rateListItemsForMessage", () => {
+  test("maps rate list items onto chat lines", () => {
+    const products = rateListItemsForMessage([
+      { productName: "Cap", unit: "pcs", customPrice: 55, defaultPrice: 45 },
+    ]);
+    expect(products[0]).toMatchObject({ name: "Cap", customPrice: 55 });
+  });
+});
+
+describe("pickSendableRateList", () => {
+  test("skips archived lists and picks the newest", () => {
+    const picked = pickSendableRateList([
+      { id: 1, status: "ARCHIVED", updatedAt: "2026-09-12T10:00:00.000Z" },
+      { id: 2, status: "DRAFT", updatedAt: "2026-09-10T10:00:00.000Z" },
+      { id: 3, status: "SENT", updatedAt: "2026-09-11T10:00:00.000Z" },
+    ]);
+    expect(picked.id).toBe(3);
+  });
+});
+
+describe("whatsappPrefillHref", () => {
+  test("prefills short messages", () => {
+    const result = whatsappPrefillHref("Rate list", "03001234001");
+    expect(result.mode).toBe("prefill");
+    expect(result.href.startsWith("https://wa.me/923001234001?text=")).toBe(true);
   });
 });

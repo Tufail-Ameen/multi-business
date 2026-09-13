@@ -1,19 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Can } from "../auth/guards";
 import { useAuth } from "../auth/AuthContext";
 import ClientFormModal, { toClientPayload } from "../components/clients/ClientFormModal";
 import ClientList from "../components/clients/ClientList";
-import { useClientMutations } from "../hooks/useClients";
+import SendClientRateListModal from "../components/clients/SendClientRateListModal";
+import { useClientMutations, useClients } from "../hooks/useClients";
 import { PERMISSIONS } from "../lib/permissions";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
 
 export default function ClientsPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [sendingClient, setSendingClient] = useState(null);
   const [query, setQuery] = useState("");
   const { can } = useAuth();
+  const { clients } = useClients();
   const { createClient, updateClient, deleteClient, isSaving } = useClientMutations();
+
+  useEffect(() => {
+    const fromState = location.state?.sendClient;
+    if (fromState?.id == null) return;
+    const shop =
+      clients.find((row) => String(row.id) === String(fromState.id)) || fromState;
+    setSendingClient(shop);
+    navigate("/clients", { replace: true, state: {} });
+  }, [location.state, clients, navigate]);
 
   const closeForm = () => {
     setFormOpen(false);
@@ -60,7 +75,7 @@ export default function ClientsPage() {
               Clients
             </h1>
             <p className="textcklr small mb-0">
-              Add and manage billing clients for invoices and rate lists.
+              Assign items for a shop, then send those rates on WhatsApp.
             </p>
           </div>
           <Can permission={PERMISSIONS.CLIENTS_CREATE}>
@@ -80,12 +95,14 @@ export default function ClientsPage() {
         <ClientList
           query={query}
           onQueryChange={setQuery}
+          onSend={(client) => setSendingClient(client)}
           onEdit={(client) => {
             if (!can(PERMISSIONS.CLIENTS_UPDATE)) return;
             setEditing(client);
             setFormOpen(true);
           }}
           onDelete={onDelete}
+          canSendPermission={PERMISSIONS.RATE_LISTS_SEND}
           canEditPermission={PERMISSIONS.CLIENTS_UPDATE}
           canDeletePermission={PERMISSIONS.CLIENTS_DELETE}
         />
@@ -99,6 +116,13 @@ export default function ClientsPage() {
           onSubmit={onSubmit}
         />
       )}
+
+      {sendingClient ? (
+        <SendClientRateListModal
+          client={sendingClient}
+          onClose={() => setSendingClient(null)}
+        />
+      ) : null}
     </div>
   );
 }

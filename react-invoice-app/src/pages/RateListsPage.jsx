@@ -18,9 +18,10 @@ import {
   getRateListShareUrl,
   isLocalhostOrigin,
   mailtoShareHref,
+  openWhatsAppWindow,
   shareMessage,
   storeUrlFromToken,
-  whatsappShareHref,
+  whatsappOpenHref,
 } from "../lib/rateLists";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
 import {
@@ -80,7 +81,13 @@ export default function RateListsPage() {
       }
       const copied = await copyText(url);
       if (openWhatsapp) {
-        window.open(whatsappShareHref("Rate list", url), "_blank", "noopener,noreferrer");
+        const href = whatsappOpenHref("Rate list", url);
+        openWhatsAppWindow(href);
+        const chatCopied = await copyText(href);
+        toast.success(
+          chatCopied ? "Chat link copied. Paste it in your open WhatsApp tab." : href
+        );
+        return;
       }
       toast.success(copied ? "Store link copied" : url);
     } catch (err) {
@@ -125,7 +132,14 @@ export default function RateListsPage() {
 
       const copied = await copyText(shareUrl);
       if (options.channel === "whatsapp") {
-        window.open(whatsappShareHref(shareMessage(list), shareUrl), "_blank", "noopener,noreferrer");
+        const href = whatsappOpenHref(shareMessage(list), shareUrl);
+        openWhatsAppWindow(href);
+        const chatCopied = await copyText(href);
+        toast.success(
+          chatCopied ? "Chat link copied. Paste it in your open WhatsApp tab." : href
+        );
+        closeSend();
+        return;
       }
       if (options.channel === "email") {
         window.open(mailtoShareHref(list, shareUrl), "_blank", "noopener,noreferrer");

@@ -14,8 +14,12 @@ import {
   splitCatalogColumns,
   toMoneyNumber,
   whatsappDigits,
+  openWhatsAppWindow,
+  WHATSAPP_WINDOW_NAME,
+  whatsappOpenHref,
   whatsappPrefillHref,
   whatsappShareHref,
+  whatsappWebSendHref,
 } from "./rateLists";
 import { toPrintRow } from "./rateListPrint";
 
@@ -300,6 +304,47 @@ describe("whatsappPrefillHref", () => {
   test("prefills short messages", () => {
     const result = whatsappPrefillHref("Rate list", "03001234001");
     expect(result.mode).toBe("prefill");
-    expect(result.href.startsWith("https://wa.me/923001234001?text=")).toBe(true);
+    expect(result.href).toContain(encodeURIComponent("Rate list"));
+  });
+});
+
+describe("whatsappOpenHref", () => {
+  test("opens WhatsApp Web with the message already in the chat box", () => {
+    const text = encodeURIComponent("Rate list");
+    expect(whatsappWebSendHref("Rate list", "", "03001234001")).toBe(
+      `https://web.whatsapp.com/send?phone=923001234001&type=phone_number&app_absent=0&text=${text}`
+    );
+    expect(whatsappOpenHref("Rate list", "", "03001234001", "Mozilla/5.0")).toBe(
+      `https://web.whatsapp.com/send?phone=923001234001&type=phone_number&app_absent=0&text=${text}`
+    );
+  });
+
+  test("uses wa.me on phones so the WhatsApp app opens", () => {
+    expect(whatsappOpenHref("Rate list", "", "03001234001", "Mozilla/5.0 (iPhone)")).toBe(
+      `https://wa.me/923001234001?text=${encodeURIComponent("Rate list")}`
+    );
+  });
+});
+
+describe("openWhatsAppWindow", () => {
+  test("does not open a second WhatsApp Web tab", () => {
+    const open = jest.spyOn(window, "open");
+    const href =
+      "https://web.whatsapp.com/send?phone=923001234001&type=phone_number&app_absent=0&text=Hi";
+
+    expect(openWhatsAppWindow(href)).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  test("still opens wa.me on phones in one named tab", () => {
+    const popup = { opener: window, focus: jest.fn() };
+    const open = jest.spyOn(window, "open").mockReturnValue(popup);
+    const href = "https://wa.me/923001234001?text=Hi";
+
+    openWhatsAppWindow(href);
+
+    expect(open).toHaveBeenCalledWith(href, WHATSAPP_WINDOW_NAME);
+    open.mockRestore();
   });
 });

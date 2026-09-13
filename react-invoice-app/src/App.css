@@ -2890,6 +2890,43 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin: 0.9rem 0 1rem;
 }
 
+.send-rate-handoff {
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  padding: 1rem 1.05rem;
+}
+
+.send-rate-handoff-title {
+  margin: 0;
+  font-weight: 650;
+  color: var(--color-text);
+}
+
+.send-rate-handoff-copy {
+  margin: 0.45rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--color-muted, #5b6470);
+}
+
+.send-rate-handoff-steps {
+  margin: 0.7rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--color-text);
+}
+
+.send-rate-handoff-steps kbd {
+  display: inline-block;
+  padding: 0.05rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface, #fff);
+  font-size: 0.8rem;
+}
+
 .send-rate-sheet {
   border: 1px solid var(--color-border);
   border-radius: 14px;

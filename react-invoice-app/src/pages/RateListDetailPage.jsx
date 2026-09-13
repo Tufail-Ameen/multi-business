@@ -29,9 +29,10 @@ import {
   getStoreShareUrl,
   isLocalhostOrigin,
   mailtoShareHref,
+  openWhatsAppWindow,
   rateListStatus,
   shareMessage,
-  whatsappShareHref,
+  whatsappOpenHref,
 } from "../lib/rateLists";
 import { getErrorCode, getErrorMessage } from "../lib/rtkBaseQuery";
 import {
@@ -139,7 +140,12 @@ export default function RateListDetailPage() {
       setSendOpen(false);
       const url = getStoreShareUrl(merged) || getRateListShareUrl(merged) || shareUrl;
       if (options.channel === "whatsapp" && url) {
-        window.open(whatsappShareHref(shareMessage(merged), url), "_blank", "noopener,noreferrer");
+        const href = whatsappOpenHref(shareMessage(merged), url);
+        openWhatsAppWindow(href);
+        const chatCopied = await copyText(href);
+        toast.success(
+          chatCopied ? "Chat link copied. Paste it in your open WhatsApp tab." : href
+        );
       } else if (options.channel === "email" && url) {
         window.open(mailtoShareHref(merged, url), "_blank", "noopener,noreferrer");
       } else if (url) {
@@ -227,9 +233,18 @@ export default function RateListDetailPage() {
                 <Can permission={PERMISSIONS.RATE_LISTS_SEND}>
                   <a
                     className="btn"
-                    href={whatsappShareHref(shareMessageText, shareUrl)}
-                    target="_blank"
-                    rel="noreferrer"
+                    href={whatsappOpenHref(shareMessageText, shareUrl)}
+                    onClick={async (event) => {
+                      event.preventDefault();
+                      const href = whatsappOpenHref(shareMessageText, shareUrl);
+                      openWhatsAppWindow(href);
+                      const chatCopied = await copyText(href);
+                      toast.success(
+                        chatCopied
+                          ? "Chat link copied. Paste it in your open WhatsApp tab."
+                          : href
+                      );
+                    }}
                   >
                     <FontAwesomeIcon icon={faWhatsapp} />
                     WhatsApp

@@ -95,6 +95,7 @@ export default function SendClientRateListModal({ client, onClose }) {
     error: listErr,
   } = useGetRateListQuery(listId, { skip: !listId });
   const [message, setMessage] = useState("");
+  const [handoff, setHandoff] = useState(null);
   const phoneOk = hasPhone(client);
   const waiting = listsLoading || Boolean(listId && listLoading);
   const assignPath = client?.id
@@ -121,6 +122,10 @@ export default function SendClientRateListModal({ client, onClose }) {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [client, onClose]);
+
+  useEffect(() => {
+    setHandoff(null);
+  }, [client?.id]);
 
   useEffect(() => {
     setListId((current) => {
@@ -178,16 +183,17 @@ export default function SendClientRateListModal({ client, onClose }) {
       return;
     }
     const result = await openWhatsApp(client, message.trim());
-    if (result.mode === "paste") {
-      toast.success(
-        result.copied
-          ? "List copied. Paste it in the WhatsApp chat."
-          : "WhatsApp opened. Paste the copied list if it is empty."
-      );
-    } else {
+    if (result.opened) {
       toast.success(`WhatsApp opened for ${client.name}`);
+      onClose?.();
+      return;
     }
-    onClose?.();
+    setHandoff(result);
+    toast.success(
+      result.copied
+        ? "Chat link copied. Paste it in your open WhatsApp tab."
+        : "Copy the chat link, then paste it in your open WhatsApp tab."
+    );
   };
 
   const copyMessage = async () => {
@@ -202,7 +208,7 @@ export default function SendClientRateListModal({ client, onClose }) {
         onClick={(event) => event.stopPropagation()}
         onSubmit={(event) => {
           event.preventDefault();
-          sendWhatsApp();
+          if (!handoff) sendWhatsApp();
         }}
       >
         <div className="send-rate-modal-head">
@@ -235,7 +241,7 @@ export default function SendClientRateListModal({ client, onClose }) {
           ) : null}
         </div>
 
-        {sendable.length > 1 || hasItems ? (
+        {!handoff && (sendable.length > 1 || hasItems) ? (
           <div className="send-rate-modal-toolbar">
             {sendable.length > 1 ? (
               <div className="send-rate-modal-select">
@@ -281,55 +287,95 @@ export default function SendClientRateListModal({ client, onClose }) {
         ) : null}
 
         <div className="send-rate-modal-body">
-          {!waiting && !sendable.length ? (
-            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-3">
-              <p className="mb-2 text-sm text-[var(--color-text)]">
-                This shop has no assigned products yet. Tick the items they buy, then send.
+          {handoff ? (
+            <div className="send-rate-handoff">
+              <p className="send-rate-handoff-title">Open this chat in your WhatsApp tab</p>
+              <p className="send-rate-handoff-copy">
+                A new WhatsApp tab would sign you out of the one that is already open.
+                Paste the copied link in that tab&apos;s address bar so the shop chat
+                opens there with the list already typed.
               </p>
-              <Can permission={PERMISSIONS.RATE_LISTS_CREATE}>
-                <Link to={assignPath} className="btn save-changes py-2 px-3" onClick={onClose}>
-                  Assign items
-                </Link>
-              </Can>
+              <ol className="send-rate-handoff-steps">
+                <li>Click the WhatsApp tab that is already open</li>
+                <li>
+                  Press <kbd>⌘L</kbd> (address bar), then <kbd>⌘V</kbd>, then Enter
+                </li>
+              </ol>
             </div>
-          ) : null}
+          ) : (
+            <>
+              {!waiting && !sendable.length ? (
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-3">
+                  <p className="mb-2 text-sm text-[var(--color-text)]">
+                    This shop has no assigned products yet. Tick the items they buy, then send.
+                  </p>
+                  <Can permission={PERMISSIONS.RATE_LISTS_CREATE}>
+                    <Link to={assignPath} className="btn save-changes py-2 px-3" onClick={onClose}>
+                      Assign items
+                    </Link>
+                  </Can>
+                </div>
+              ) : null}
 
-          {hasItems ? (
-            <div className="send-rate-sheet">
-              <p className="send-rate-greeting">
-                Assalamualaikum {client.name},
-              </p>
-              <div className={`send-rate-grid${right.length ? "" : " send-rate-grid-single"}`}>
-                <RateColumn products={left} />
-                {right.length ? <RateColumn products={right} startIndex={left.length + 1} /> : null}
-              </div>
-            </div>
-          ) : null}
+              {hasItems ? (
+                <div className="send-rate-sheet">
+                  <p className="send-rate-greeting">
+                    Assalamualaikum {client.name},
+                  </p>
+                  <div className={`send-rate-grid${right.length ? "" : " send-rate-grid-single"}`}>
+                    <RateColumn products={left} />
+                    {right.length ? <RateColumn products={right} startIndex={left.length + 1} /> : null}
+                  </div>
+                </div>
+              ) : null}
 
-          {loadError ? <p className="mb-0 mt-3 text-red-600 small">{loadError}</p> : null}
+              {loadError ? <p className="mb-0 mt-3 text-red-600 small">{loadError}</p> : null}
+            </>
+          )}
         </div>
 
         <div className="send-rate-modal-foot">
-          <button type="button" className="btn cancel py-2 px-3" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn cancel py-2 px-3"
-            onClick={copyMessage}
-            disabled={waiting || !message.trim()}
-          >
-            <FontAwesomeIcon icon={faCopy} />
-            Copy text
-          </button>
-          <button
-            type="submit"
-            className="btn save-changes py-2 px-4"
-            disabled={waiting || !phoneOk || !hasItems || !message.trim()}
-          >
-            <FontAwesomeIcon icon={faWhatsapp} />
-            {waiting ? "Preparing…" : "Send on WhatsApp"}
-          </button>
+          {handoff ? (
+            <>
+              <button type="button" className="btn cancel py-2 px-3" onClick={onClose}>
+                Done
+              </button>
+              <button
+                type="button"
+                className="btn save-changes py-2 px-4"
+                onClick={async () => {
+                  const ok = await copyText(handoff.href);
+                  toast.success(ok ? "Chat link copied" : handoff.href);
+                }}
+              >
+                <FontAwesomeIcon icon={faCopy} />
+                Copy chat link again
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn cancel py-2 px-3" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn cancel py-2 px-3"
+                onClick={copyMessage}
+                disabled={waiting || !message.trim()}
+              >
+                <FontAwesomeIcon icon={faCopy} />
+                Copy text
+              </button>
+              <button
+                type="submit"
+                className="btn save-changes py-2 px-4"
+                disabled={waiting || !phoneOk || !hasItems || !message.trim()}
+              >
+                <FontAwesomeIcon icon={faWhatsapp} />
+                {waiting ? "Preparing…" : "Send on WhatsApp"}
+              </button>
+            </>
+          )}
         </div>
       </form>
     </div>

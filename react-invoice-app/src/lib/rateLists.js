@@ -371,6 +371,7 @@ export function catalogShareMessage(products) {
 }
 
 export const WHATSAPP_HREF_MAX_LENGTH = 2000;
+export const WHATSAPP_WINDOW_NAME = "whatsapp";
 
 export function whatsappShareHref(message, shareUrl, phone) {
   const text = shareUrl ? `${message}\n${shareUrl}` : message;
@@ -380,12 +381,71 @@ export function whatsappShareHref(message, shareUrl, phone) {
   return `https://wa.me${path}${encoded}`;
 }
 
+export function isMobileWhatsAppClient(
+  userAgent = typeof navigator !== "undefined" ? navigator.userAgent : ""
+) {
+  return /Android|iPhone|iPad|iPod/i.test(userAgent);
+}
+
+export function whatsappWebSendHref(message, shareUrl, phone) {
+  const text = shareUrl ? `${message}\n${shareUrl}` : message;
+  const digits = whatsappDigits(phone);
+  const parts = [];
+  if (digits) {
+    parts.push(`phone=${digits}`);
+    parts.push("type=phone_number");
+    parts.push("app_absent=0");
+  }
+  if (text) parts.push(`text=${encodeURIComponent(text)}`);
+  return `https://web.whatsapp.com/send${parts.length ? `?${parts.join("&")}` : ""}`;
+}
+
+export function whatsappOpenHref(message, shareUrl, phone, userAgent) {
+  if (isMobileWhatsAppClient(userAgent)) {
+    return whatsappShareHref(message, shareUrl, phone);
+  }
+  return whatsappWebSendHref(message, shareUrl, phone);
+}
+
 export function whatsappPrefillHref(message, phone) {
-  const href = whatsappShareHref(message, "", phone);
+  const href = whatsappOpenHref(message, "", phone);
   if (href.length <= WHATSAPP_HREF_MAX_LENGTH) {
     return { href, mode: "prefill" };
   }
-  return { href: whatsappShareHref("", "", phone), mode: "paste" };
+  return { href: whatsappOpenHref("", "", phone), mode: "paste" };
+}
+
+export function openWhatsAppWindow(href) {
+  if (!href || typeof window === "undefined" || typeof document === "undefined") {
+    return null;
+  }
+  // WhatsApp Web uses COOP, so a second web.whatsapp.com tab cannot join
+  // the tab that is already logged in — it only kicks that session out.
+  if (/^https:\/\/web\.whatsapp\.com/i.test(href)) {
+    return null;
+  }
+  if (href.startsWith("whatsapp:")) {
+    const link = document.createElement("a");
+    link.href = href;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return link;
+  }
+  const popup = window.open(href, WHATSAPP_WINDOW_NAME);
+  if (popup) {
+    try {
+      popup.opener = null;
+    } catch {
+      /* ignore */
+    }
+    try {
+      popup.focus();
+    } catch {
+      /* ignore */
+    }
+  }
+  return popup;
 }
 
 export function mailtoShareHref(rateList, shareUrl) {

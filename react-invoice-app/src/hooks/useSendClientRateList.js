@@ -6,6 +6,7 @@ import {
   getRateListShareUrl,
   getStoreShareUrl,
   isLocalhostOrigin,
+  openWhatsAppWindow,
   rateListItemsForMessage,
   whatsappDigits,
   whatsappPrefillHref,
@@ -42,13 +43,9 @@ export function useSendClientRateList() {
 
   const openWhatsApp = useCallback(async (client, message) => {
     const { href, mode } = whatsappPrefillHref(message, client?.phone);
-    if (mode === "paste") {
-      const copied = await copyText(message);
-      window.open(href, "_blank", "noopener,noreferrer");
-      return { mode, copied };
-    }
-    window.open(href, "_blank", "noopener,noreferrer");
-    return { mode, copied: false };
+    const opened = openWhatsAppWindow(href);
+    const copied = await copyText(href);
+    return { mode, copied, href, opened: Boolean(opened) };
   }, []);
 
   return {

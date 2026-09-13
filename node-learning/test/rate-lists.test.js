@@ -204,6 +204,101 @@ test("create rate list snapshots product names and default prices", async () => 
   assert.equal(still.customPrice, 80);
 });
 
+test("rate list items include how much this shop already bought", async () => {
+  const shop = await createClient(ownerA, businessAId, {
+    name: "Purchase Rank Shop",
+    email: "rank-shop@example.com",
+  });
+  const other = await createClient(ownerA, businessAId, {
+    name: "Other Shop",
+    email: "other-shop@example.com",
+  });
+  const cap = await createProduct(ownerA, businessAId, {
+    name: "Cap",
+    sku: "CAP-RANK",
+    salePrice: 45,
+    openingStock: 80,
+  });
+  const oil = await createProduct(ownerA, businessAId, {
+    name: "Oil",
+    sku: "OIL-RANK",
+    salePrice: 450,
+    openingStock: 80,
+  });
+  const soap = await createProduct(ownerA, businessAId, {
+    name: "Soap",
+    sku: "SOAP-RANK",
+    salePrice: 50,
+    openingStock: 80,
+  });
+
+  const created = await request("/rate-lists", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      clientId: shop.id,
+      title: "Rank list",
+      items: [{ productId: soap.id }, { productId: oil.id }, { productId: cap.id }],
+    },
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.payload));
+
+  const sold = await request("/invoices", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      clientId: shop.id,
+      issueDate: "2026-09-10",
+      dueDate: "2026-09-20",
+      status: "pending",
+      items: [
+        { productId: cap.id, quantity: 9, tax: 0 },
+        { productId: oil.id, quantity: 2, tax: 0 },
+      ],
+    },
+  });
+  assert.equal(sold.status, 201, JSON.stringify(sold.payload));
+
+  const draft = await request("/invoices", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      clientId: shop.id,
+      issueDate: "2026-09-11",
+      dueDate: "2026-09-21",
+      status: "draft",
+      items: [{ productId: soap.id, quantity: 40, tax: 0 }],
+    },
+  });
+  assert.equal(draft.status, 201, JSON.stringify(draft.payload));
+
+  const otherSale = await request("/invoices", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      clientId: other.id,
+      issueDate: "2026-09-12",
+      dueDate: "2026-09-22",
+      status: "pending",
+      items: [{ productId: soap.id, quantity: 30, tax: 0 }],
+    },
+  });
+  assert.equal(otherSale.status, 201, JSON.stringify(otherSale.payload));
+
+  const got = await request(`/rate-lists/${created.payload.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(got.status, 200, JSON.stringify(got.payload));
+  const capLine = got.payload.items.find((item) => item.productId === cap.id);
+  const oilLine = got.payload.items.find((item) => item.productId === oil.id);
+  const soapLine = got.payload.items.find((item) => item.productId === soap.id);
+  assert.equal(capLine.soldQty, 9);
+  assert.ok(capLine.lastBoughtAt);
+  assert.equal(oilLine.soldQty, 2);
+  assert.equal(soapLine.soldQty, 0);
+  assert.equal(soapLine.lastBoughtAt, null);
+});
+
 test("rejects missing client, invalid product, duplicates, and negative prices", async () => {
   const clientDoc = await createClient(ownerA, businessAId, {
     name: "Validation Client",

@@ -218,13 +218,119 @@ export function formatCatalogLine(product) {
 export function rateListItemsForMessage(items) {
   return (items || [])
     .map((item) => ({
+      productId: item.productId,
       name: item.productName || item.name,
       productName: item.productName || item.name,
       unit: item.unit || "pcs",
       customPrice: item.customPrice ?? item.price,
       salePrice: item.defaultPrice ?? item.salePrice,
+      soldQty: Number(item.soldQty) || 0,
+      lastBoughtAt: item.lastBoughtAt || null,
     }))
     .filter((item) => item.name);
+}
+
+export const RATE_LIST_SORT = Object.freeze({
+  BUYS_MOST: "buys_most",
+  RECENT: "recent",
+  NEW_FIRST: "new_first",
+  NAME: "name",
+  SAVED: "saved",
+});
+
+export const RATE_LIST_SORT_OPTIONS = [
+  { id: RATE_LIST_SORT.BUYS_MOST, label: "This shop buys most" },
+  { id: RATE_LIST_SORT.RECENT, label: "Recently bought" },
+  { id: RATE_LIST_SORT.NEW_FIRST, label: "New items first" },
+  { id: RATE_LIST_SORT.NAME, label: "A–Z" },
+  { id: RATE_LIST_SORT.SAVED, label: "Saved order" },
+];
+
+const RATE_LIST_SORT_HINTS = {
+  [RATE_LIST_SORT.BUYS_MOST]: "Items this shop already buys stay at the top.",
+  [RATE_LIST_SORT.RECENT]: "Latest purchases first, then items they have not bought.",
+  [RATE_LIST_SORT.NEW_FIRST]: "Items they have not bought yet stay at the top.",
+  [RATE_LIST_SORT.NAME]: "Alphabetical by product name.",
+  [RATE_LIST_SORT.SAVED]: "Same order as the saved rate list.",
+};
+
+export function rateListSortHint(mode) {
+  return RATE_LIST_SORT_HINTS[mode] || RATE_LIST_SORT_HINTS[RATE_LIST_SORT.BUYS_MOST];
+}
+
+export function isRateListSortMode(value) {
+  return RATE_LIST_SORT_OPTIONS.some((row) => row.id === value);
+}
+
+function productSortKey(item) {
+  return String(item?.productId ?? item?.id ?? "");
+}
+
+function productSortName(item) {
+  return String(item?.name || item?.productName || "").toLowerCase();
+}
+
+function compareByName(a, b) {
+  const byName = productSortName(a).localeCompare(productSortName(b));
+  if (byName) return byName;
+  return productSortKey(a).localeCompare(productSortKey(b));
+}
+
+function soldQtyOf(item, stats) {
+  if (stats instanceof Map) {
+    const row = stats.get(productSortKey(item)) || stats.get(Number(item?.productId));
+    if (row) return Number(row.qty ?? row.soldQty) || 0;
+  }
+  return Number(item?.soldQty) || 0;
+}
+
+function lastBoughtOf(item, stats) {
+  if (stats instanceof Map) {
+    const row = stats.get(productSortKey(item)) || stats.get(Number(item?.productId));
+    if (row?.lastBoughtAt) return new Date(row.lastBoughtAt).getTime() || 0;
+  }
+  if (item?.lastBoughtAt) return new Date(item.lastBoughtAt).getTime() || 0;
+  return 0;
+}
+
+export function sortRateListProducts(products, mode = RATE_LIST_SORT.BUYS_MOST, stats) {
+  const list = [...(products || [])];
+  if (!list.length || mode === RATE_LIST_SORT.SAVED) return list;
+  if (mode === RATE_LIST_SORT.NAME) return list.sort(compareByName);
+
+  const bought = [];
+  const never = [];
+  for (const item of list) {
+    if (soldQtyOf(item, stats) > 0) bought.push(item);
+    else never.push(item);
+  }
+  never.sort(compareByName);
+
+  const byQtyThenRecent = (a, b) => {
+    const qty = soldQtyOf(b, stats) - soldQtyOf(a, stats);
+    if (qty) return qty;
+    const recency = lastBoughtOf(b, stats) - lastBoughtOf(a, stats);
+    if (recency) return recency;
+    return compareByName(a, b);
+  };
+  const byRecentThenQty = (a, b) => {
+    const recency = lastBoughtOf(b, stats) - lastBoughtOf(a, stats);
+    if (recency) return recency;
+    const qty = soldQtyOf(b, stats) - soldQtyOf(a, stats);
+    if (qty) return qty;
+    return compareByName(a, b);
+  };
+
+  if (mode === RATE_LIST_SORT.RECENT) {
+    bought.sort(byRecentThenQty);
+    return [...bought, ...never];
+  }
+  if (mode === RATE_LIST_SORT.NEW_FIRST) {
+    bought.sort(byQtyThenRecent);
+    return [...never, ...bought];
+  }
+  bought.sort(byQtyThenRecent);
+  return [...bought, ...never];
 }
 
 export function pickSendableRateList(rateLists) {

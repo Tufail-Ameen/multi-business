@@ -2834,7 +2834,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .send-rate-modal-head,
 .send-rate-modal-foot,
-.send-rate-modal-select {
+.send-rate-modal-toolbar {
   flex-shrink: 0;
 }
 
@@ -2845,8 +2845,28 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin-top: 0.85rem;
 }
 
-.send-rate-modal-select {
+.send-rate-modal-toolbar {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem 1rem;
   margin: 0.85rem 0 0;
+}
+
+@media (min-width: 640px) {
+  .send-rate-modal-toolbar {
+    grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+  }
+}
+
+.send-rate-modal-select {
+  margin: 0;
+}
+
+.send-rate-sort-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--color-text-muted);
 }
 
 .send-rate-modal-body {

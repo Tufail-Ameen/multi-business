@@ -10,8 +10,13 @@ import { PERMISSIONS } from "../../lib/permissions";
 import {
   copyText,
   formatPrice,
+  isRateListSortMode,
   pickSendableRateList,
   productDefaultPrice,
+  RATE_LIST_SORT,
+  RATE_LIST_SORT_OPTIONS,
+  rateListSortHint,
+  sortRateListProducts,
   splitCatalogColumns,
   toMoneyNumber,
 } from "../../lib/rateLists";
@@ -22,6 +27,25 @@ import {
 } from "../../services/invoiceApi";
 
 const EMPTY_LISTS = [];
+const SORT_STORAGE_KEY = "rateListSendSort";
+
+function readSortMode() {
+  try {
+    const stored = window.localStorage.getItem(SORT_STORAGE_KEY);
+    if (isRateListSortMode(stored)) return stored;
+  } catch {
+    /* ignore quota / private mode */
+  }
+  return RATE_LIST_SORT.BUYS_MOST;
+}
+
+function persistSortMode(mode) {
+  try {
+    window.localStorage.setItem(SORT_STORAGE_KEY, mode);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
 
 function itemRate(product) {
   return formatPrice(toMoneyNumber(product?.customPrice) ?? productDefaultPrice(product));
@@ -63,6 +87,7 @@ export default function SendClientRateListModal({ client, onClose }) {
     [lists]
   );
   const [listId, setListId] = useState("");
+  const [sortMode, setSortMode] = useState(readSortMode);
   const {
     data: list,
     isLoading: listLoading,
@@ -75,10 +100,18 @@ export default function SendClientRateListModal({ client, onClose }) {
   const assignPath = client?.id
     ? `/rate-lists/new?clientId=${encodeURIComponent(client.id)}`
     : "/rate-lists/new";
-  const products = productsFromList(list);
+  const products = useMemo(
+    () => sortRateListProducts(productsFromList(list), sortMode),
+    [list, productsFromList, sortMode]
+  );
   const hasItems = products.length > 0;
   const { left, right } =
     products.length > 1 ? splitCatalogColumns(products) : { left: products, right: [] };
+
+  const onSortMode = (next) => {
+    setSortMode(next);
+    persistSortMode(next);
+  };
 
   useEffect(() => {
     if (!client) return undefined;
@@ -106,7 +139,7 @@ export default function SendClientRateListModal({ client, onClose }) {
     if (!list) return;
     setMessage(
       buildMessage(client, {
-        products: productsFromList(list),
+        products,
         shareUrl: shareUrlFromList(list),
       })
     );
@@ -115,8 +148,8 @@ export default function SendClientRateListModal({ client, onClose }) {
     waiting,
     listId,
     list,
+    products,
     buildMessage,
-    productsFromList,
     shareUrlFromList,
   ]);
 
@@ -202,24 +235,48 @@ export default function SendClientRateListModal({ client, onClose }) {
           ) : null}
         </div>
 
-        {sendable.length > 1 ? (
-          <div className="send-rate-modal-select">
-            <label className="form-label input-clr" htmlFor="client-send-list">
-              Item list
-            </label>
-            <select
-              id="client-send-list"
-              className="form-select input-settings"
-              value={listId}
-              onChange={(event) => setListId(event.target.value)}
-            >
-              {sendable.map((row) => (
-                <option key={row.id} value={String(row.id)}>
-                  {row.title || row.number || `List #${row.id}`}
-                  {row.itemCount != null ? ` (${row.itemCount})` : ""}
-                </option>
-              ))}
-            </select>
+        {sendable.length > 1 || hasItems ? (
+          <div className="send-rate-modal-toolbar">
+            {sendable.length > 1 ? (
+              <div className="send-rate-modal-select">
+                <label className="form-label input-clr" htmlFor="client-send-list">
+                  Item list
+                </label>
+                <select
+                  id="client-send-list"
+                  className="form-select input-settings"
+                  value={listId}
+                  onChange={(event) => setListId(event.target.value)}
+                >
+                  {sendable.map((row) => (
+                    <option key={row.id} value={String(row.id)}>
+                      {row.title || row.number || `List #${row.id}`}
+                      {row.itemCount != null ? ` (${row.itemCount})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            {hasItems ? (
+              <div className="send-rate-modal-select">
+                <label className="form-label input-clr" htmlFor="client-send-sort">
+                  Show first
+                </label>
+                <select
+                  id="client-send-sort"
+                  className="form-select input-settings"
+                  value={sortMode}
+                  onChange={(event) => onSortMode(event.target.value)}
+                >
+                  {RATE_LIST_SORT_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="send-rate-sort-hint">{rateListSortHint(sortMode)}</p>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

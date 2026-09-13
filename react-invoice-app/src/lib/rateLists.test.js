@@ -8,7 +8,9 @@ import {
   paginateCatalogProducts,
   pickSendableRateList,
   productDefaultPrice,
+  RATE_LIST_SORT,
   rateListItemsForMessage,
+  sortRateListProducts,
   splitCatalogColumns,
   toMoneyNumber,
   whatsappDigits,
@@ -210,9 +212,76 @@ describe("formatCatalogLine", () => {
 describe("rateListItemsForMessage", () => {
   test("maps rate list items onto chat lines", () => {
     const products = rateListItemsForMessage([
-      { productName: "Cap", unit: "pcs", customPrice: 55, defaultPrice: 45 },
+      {
+        productId: 9,
+        productName: "Cap",
+        unit: "pcs",
+        customPrice: 55,
+        defaultPrice: 45,
+        soldQty: 12,
+        lastBoughtAt: "2026-09-01T00:00:00.000Z",
+      },
     ]);
-    expect(products[0]).toMatchObject({ name: "Cap", customPrice: 55 });
+    expect(products[0]).toMatchObject({
+      name: "Cap",
+      customPrice: 55,
+      productId: 9,
+      soldQty: 12,
+    });
+  });
+});
+
+describe("sortRateListProducts", () => {
+  const items = [
+    { productId: 1, name: "Oil", soldQty: 2, lastBoughtAt: "2026-08-01T00:00:00.000Z" },
+    { productId: 2, name: "Soap", soldQty: 0, lastBoughtAt: null },
+    { productId: 3, name: "Cap", soldQty: 9, lastBoughtAt: "2026-07-01T00:00:00.000Z" },
+    { productId: 4, name: "Biscuit", soldQty: 0, lastBoughtAt: null },
+  ];
+
+  test("puts this shop's biggest sellers first", () => {
+    expect(sortRateListProducts(items, RATE_LIST_SORT.BUYS_MOST).map((row) => row.name)).toEqual([
+      "Cap",
+      "Oil",
+      "Biscuit",
+      "Soap",
+    ]);
+  });
+
+  test("puts the most recently bought items first", () => {
+    expect(sortRateListProducts(items, RATE_LIST_SORT.RECENT).map((row) => row.name)).toEqual([
+      "Oil",
+      "Cap",
+      "Biscuit",
+      "Soap",
+    ]);
+  });
+
+  test("puts items they have not bought yet first", () => {
+    expect(sortRateListProducts(items, RATE_LIST_SORT.NEW_FIRST).map((row) => row.name)).toEqual([
+      "Biscuit",
+      "Soap",
+      "Cap",
+      "Oil",
+    ]);
+  });
+
+  test("sorts A–Z by name", () => {
+    expect(sortRateListProducts(items, RATE_LIST_SORT.NAME).map((row) => row.name)).toEqual([
+      "Biscuit",
+      "Cap",
+      "Oil",
+      "Soap",
+    ]);
+  });
+
+  test("keeps saved order", () => {
+    expect(sortRateListProducts(items, RATE_LIST_SORT.SAVED).map((row) => row.name)).toEqual([
+      "Oil",
+      "Soap",
+      "Cap",
+      "Biscuit",
+    ]);
   });
 });
 

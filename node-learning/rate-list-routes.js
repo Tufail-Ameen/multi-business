@@ -65,7 +65,9 @@ function productSalePrice(product, variant) {
   return 0;
 }
 
-function publicRateListItem(item) {
+const SALE_INVOICE_STATUSES = new Set(["pending", "paid"]);
+
+function publicRateListItem(item, purchase) {
   return {
     productId: item.productId,
     variantId: item.variantId ?? null,
@@ -75,11 +77,19 @@ function publicRateListItem(item) {
     variantName: item.variantName || null,
     defaultPrice: toMoney(item.defaultPrice),
     customPrice: toMoney(item.customPrice),
+    soldQty: Number(purchase?.soldQty) || 0,
+    lastBoughtAt: purchase?.lastBoughtAt || null,
   };
+}
+
+function purchaseForItem(item, purchases) {
+  if (!purchases || typeof purchases.get !== "function") return null;
+  return purchases.get(Number(item.productId)) || purchases.get(item.productId) || null;
 }
 
 function publicRateList(list, extras = {}) {
   if (!list) return list;
+  const { purchases, ...rest } = extras;
   return {
     id: list.id,
     businessId: list.businessId,
@@ -89,7 +99,9 @@ function publicRateList(list, extras = {}) {
     title: list.title || null,
     notes: list.notes || null,
     status: list.status,
-    items: Array.isArray(list.items) ? list.items.map(publicRateListItem) : [],
+    items: Array.isArray(list.items)
+      ? list.items.map((item) => publicRateListItem(item, purchaseForItem(item, purchases)))
+      : [],
     itemCount: Array.isArray(list.items)
       ? list.items.length
       : Number(list.itemCount) || 0,
@@ -104,7 +116,7 @@ function publicRateList(list, extras = {}) {
     updatedBy: list.updatedBy || null,
     createdAt: list.createdAt,
     updatedAt: list.updatedAt,
-    ...extras,
+    ...rest,
   };
 }
 
@@ -182,6 +194,45 @@ function publicStoreFromRateList(
         })
       : [],
   };
+}
+
+async function loadClientPurchaseStats(db, businessId, clientId) {
+  const stats = new Map();
+  const id = parsePositiveId(clientId);
+  if (id == null) return stats;
+  const invoices = await db
+    .collection("invoices")
+    .find(
+      {
+        businessId,
+        clientId: id,
+        status: { $in: [...SALE_INVOICE_STATUSES] },
+      },
+      { projection: { items: 1, issueDate: 1, createdAt: 1 } }
+    )
+    .toArray();
+
+  for (const invoice of invoices) {
+    const when = new Date(invoice.issueDate || invoice.createdAt || 0);
+    const whenMs = when.getTime();
+    const whenIso = Number.isFinite(whenMs) && whenMs > 0 ? when.toISOString() : null;
+    for (const item of invoice.items || []) {
+      const productId = Number(item.productId);
+      if (!Number.isFinite(productId)) continue;
+      const qty = Number(item.quantity) || 0;
+      if (qty <= 0) continue;
+      const prev = stats.get(productId) || { soldQty: 0, lastBoughtAt: null };
+      prev.soldQty += qty;
+      if (
+        whenIso &&
+        (!prev.lastBoughtAt || whenMs > new Date(prev.lastBoughtAt).getTime())
+      ) {
+        prev.lastBoughtAt = whenIso;
+      }
+      stats.set(productId, prev);
+    }
+  }
+  return stats;
 }
 
 async function loadProductsForRateList(db, list, { session } = {}) {
@@ -496,7 +547,12 @@ function registerRateListRoutes({
         if (!list) {
           throw new AppError(404, "RATE_LIST_NOT_FOUND", "Rate list not found");
         }
-        res.json(publicRateList(list));
+        const purchases = await loadClientPurchaseStats(
+          db,
+          req.tenant.businessId,
+          list.clientId
+        );
+        res.json(publicRateList(list, { purchases }));
       } catch (error) {
         next(error);
       }

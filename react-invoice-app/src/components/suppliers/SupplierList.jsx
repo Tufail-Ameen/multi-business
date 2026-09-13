@@ -1,8 +1,9 @@
 import { faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Can } from "../../auth/guards";
+import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import { useSuppliers } from "../../hooks/useSuppliers";
 import EmptyState from "../ui/EmptyState";
 
@@ -47,12 +48,23 @@ export default function SupplierList({
   canEditPermission,
   canDeletePermission,
 }) {
+  const navigate = useNavigate();
   const { suppliers, isLoading } = useSuppliers({ limit: 100 });
 
   const visibleSuppliers = useMemo(
     () => suppliers.filter((supplier) => matchesQuery(supplier, query)),
     [suppliers, query]
   );
+  const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
+    useSearchListKeyboard({
+      itemCount: visibleSuppliers.length,
+      resetKey: query,
+      idPrefix: "vendor-search",
+      onActivate: (index) => {
+        const supplier = visibleSuppliers[index];
+        if (supplier?.id != null) navigate(`/vendors/${supplier.id}`);
+      },
+    });
 
   const editButton = (supplier) => (
     <button
@@ -99,7 +111,10 @@ export default function SupplierList({
     );
   } else {
     body = (
-      <table className="product-table w-full min-w-[52rem] md:min-w-full">
+      <table
+        id={resultsId}
+        className="product-table w-full min-w-[52rem] md:min-w-full"
+      >
         <thead>
           <tr>
             <th className="col-index text-left">#</th>
@@ -113,7 +128,12 @@ export default function SupplierList({
         </thead>
         <tbody>
           {visibleSuppliers.map((supplier, index) => (
-            <tr key={supplier.key || supplier._id || supplier.id}>
+            <tr
+              key={supplier.key || supplier._id || supplier.id}
+              id={rowId(index)}
+              ref={setRowRef(index)}
+              className={activeIndex === index ? "is-keyboard-active" : undefined}
+            >
               <td className="col-index text-left">{index + 1}</td>
               <td className="table-text-size text-left">
                 {supplier.id != null ? (
@@ -165,6 +185,12 @@ export default function SupplierList({
           placeholder="Search name, company, phone, or city…"
           value={query}
           onChange={(event) => onQueryChange?.(event.target.value)}
+          onKeyDown={onSearchKeyDown}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={visibleSuppliers.length > 0}
+          aria-controls={resultsId}
+          aria-activedescendant={activeRowId}
           aria-label="Search vendors"
         />
       </div>

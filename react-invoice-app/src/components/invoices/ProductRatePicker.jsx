@@ -2,6 +2,7 @@ import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import { INVOICE_CURRENCY, formatAmount } from "../../utils/invoice";
 
 function rateLabel(value) {
@@ -30,6 +31,20 @@ export default function ProductRatePicker({ products, value, onChange }) {
       return name.includes(q) || sku.includes(q);
     });
   }, [products, search]);
+
+  const pick = (product) => {
+    onChange(product ? String(product.id) : "");
+    setSearch("");
+    setOpen(false);
+  };
+
+  const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
+    useSearchListKeyboard({
+      itemCount: filtered.length,
+      resetKey: `${open}:${search}`,
+      idPrefix: "invoice-product-search",
+      onActivate: (index) => pick(filtered[index]),
+    });
 
   useEffect(() => {
     if (!open) return undefined;
@@ -81,12 +96,6 @@ export default function ProductRatePicker({ products, value, onChange }) {
     };
   }, [open]);
 
-  const pick = (product) => {
-    onChange(product ? String(product.id) : "");
-    setSearch("");
-    setOpen(false);
-  };
-
   return (
     <div className="invoice-rate-picker">
       <button
@@ -105,7 +114,7 @@ export default function ProductRatePicker({ products, value, onChange }) {
 
       {open
         ? createPortal(
-            <div ref={panelRef} className="invoice-rate-picker-panel" style={panelStyle} role="listbox">
+            <div ref={panelRef} className="invoice-rate-picker-panel" style={panelStyle}>
               <div className="invoice-rate-picker-search">
                 <input
                   ref={searchRef}
@@ -113,6 +122,12 @@ export default function ProductRatePicker({ products, value, onChange }) {
                   value={search}
                   placeholder="Search product…"
                   onChange={(event) => setSearch(event.target.value)}
+                  onKeyDown={onSearchKeyDown}
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={filtered.length > 0}
+                  aria-controls={resultsId}
+                  aria-activedescendant={activeRowId}
                 />
               </div>
               <div className="invoice-rate-picker-head" aria-hidden="true">
@@ -121,19 +136,24 @@ export default function ProductRatePicker({ products, value, onChange }) {
                 <span>Sale</span>
                 <span>Printed</span>
               </div>
-              <div className="invoice-rate-picker-list">
+              <div id={resultsId} className="invoice-rate-picker-list" role="listbox">
                 {!filtered.length ? (
                   <p className="invoice-rate-picker-empty">No products match.</p>
                 ) : (
-                  filtered.map((product) => {
+                  filtered.map((product, index) => {
                     const isSelected = String(product.id) === String(value);
+                    const isActive = activeIndex === index;
                     return (
                       <button
                         key={product.id}
+                        id={rowId(index)}
+                        ref={setRowRef(index)}
                         type="button"
                         role="option"
                         aria-selected={isSelected}
-                        className={`invoice-rate-picker-row${isSelected ? " is-selected" : ""}`}
+                        className={`invoice-rate-picker-row${isSelected ? " is-selected" : ""}${
+                          isActive ? " is-keyboard-active" : ""
+                        }`}
                         onClick={() => pick(product)}
                       >
                         <span className="invoice-rate-picker-name">{product.name}</span>

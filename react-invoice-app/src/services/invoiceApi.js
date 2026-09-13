@@ -191,7 +191,10 @@ export const invoiceApi = createApi({
         method: "PUT",
         data: body,
       }),
-      invalidatesTags: [{ type: "Client", id: "LIST" }],
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Client", id: "LIST" },
+        { type: "Client", id },
+      ],
     }),
     deleteClient: builder.mutation({
       query: (id) => ({ url: `/clients/${id}`, method: "DELETE" }),

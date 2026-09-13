@@ -2,9 +2,10 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Can } from "../../auth/guards";
 import { useClients } from "../../hooks/useClients";
+import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import EmptyState from "../ui/EmptyState";
 
 function formatCell(value) {
@@ -35,6 +36,7 @@ export default function ClientList({
   canDeletePermission,
   canSendPermission,
 }) {
+  const navigate = useNavigate();
   const { clients, isLoading } = useClients(
     query.trim() ? { q: query.trim() } : {}
   );
@@ -43,6 +45,16 @@ export default function ClientList({
     () => clients.filter((client) => matchesQuery(client, query)),
     [clients, query]
   );
+  const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
+    useSearchListKeyboard({
+      itemCount: visibleClients.length,
+      resetKey: query,
+      idPrefix: "client-search",
+      onActivate: (index) => {
+        const client = visibleClients[index];
+        if (client?.id != null) navigate(`/clients/${client.id}`);
+      },
+    });
 
   const editButton = (client) => (
     <button
@@ -101,7 +113,10 @@ export default function ClientList({
     );
   } else {
     body = (
-      <table className="product-table w-full min-w-[56rem] md:min-w-full">
+      <table
+        id={resultsId}
+        className="product-table w-full min-w-[56rem] md:min-w-full"
+      >
         <thead>
           <tr>
             <th className="col-index text-left">#</th>
@@ -116,7 +131,12 @@ export default function ClientList({
         </thead>
         <tbody>
           {visibleClients.map((client, index) => (
-            <tr key={client.key || client._id || client.id}>
+            <tr
+              key={client.key || client._id || client.id}
+              id={rowId(index)}
+              ref={setRowRef(index)}
+              className={activeIndex === index ? "is-keyboard-active" : undefined}
+            >
               <td className="col-index text-left">{index + 1}</td>
               <td className="table-text-size text-left">
                 {client.id != null ? (
@@ -172,6 +192,12 @@ export default function ClientList({
           placeholder="Search shop name, phone, area, or city…"
           value={query}
           onChange={(event) => onQueryChange?.(event.target.value)}
+          onKeyDown={onSearchKeyDown}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={visibleClients.length > 0}
+          aria-controls={resultsId}
+          aria-activedescendant={activeRowId}
           aria-label="Search clients"
         />
       </div>

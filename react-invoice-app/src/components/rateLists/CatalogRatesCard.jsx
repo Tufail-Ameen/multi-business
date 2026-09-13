@@ -1,8 +1,9 @@
 import { useMemo } from "react";
+import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import { formatPrice, matchesRateListQuery, productDefaultPrice, splitCatalogColumns } from "../../lib/rateLists";
 import EmptyState from "../ui/EmptyState";
 
-function CatalogColumn({ products, startIndex = 1 }) {
+function CatalogColumn({ products, startIndex = 1, activeIndex = -1, setRowRef, rowId }) {
   const cellBorder = "border-0 border-b border-solid border-[#d4cfc4] text-left";
   return (
     <table className="product-table w-full !min-w-0 border-separate border-spacing-0">
@@ -15,20 +16,28 @@ function CatalogColumn({ products, startIndex = 1 }) {
         </tr>
       </thead>
       <tbody>
-        {products.map((product, index) => (
-          <tr key={product.key || product.id}>
-            <td className={`col-index ${cellBorder}`}>{startIndex + index}</td>
-            <td className={`table-text-size ${cellBorder}`}>
-              {product.name}
-            </td>
-            <td className={`cell-muted ${cellBorder}`}>
-              {product.unit || "pcs"}
-            </td>
-            <td className={`price whitespace-nowrap ${cellBorder}`}>
-              {formatPrice(productDefaultPrice(product))}
-            </td>
-          </tr>
-        ))}
+        {products.map((product, index) => {
+          const listIndex = startIndex - 1 + index;
+          return (
+            <tr
+              key={product.key || product.id}
+              id={rowId?.(listIndex)}
+              ref={setRowRef?.(listIndex)}
+              className={activeIndex === listIndex ? "is-keyboard-active" : undefined}
+            >
+              <td className={`col-index ${cellBorder}`}>{startIndex + index}</td>
+              <td className={`table-text-size ${cellBorder}`}>
+                {product.name}
+              </td>
+              <td className={`cell-muted ${cellBorder}`}>
+                {product.unit || "pcs"}
+              </td>
+              <td className={`price whitespace-nowrap ${cellBorder}`}>
+                {formatPrice(productDefaultPrice(product))}
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -47,6 +56,12 @@ export default function CatalogRatesCard({
     () => products.filter((product) => matchesRateListQuery(product, search)),
     [products, search]
   );
+  const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
+    useSearchListKeyboard({
+      itemCount: visibleProducts.length,
+      resetKey: search,
+      idPrefix: "catalog-search",
+    });
 
   let body = null;
   if (isLoading) {
@@ -70,9 +85,15 @@ export default function CatalogRatesCard({
   } else {
     const { left, right } = splitCatalogColumns(visibleProducts);
     body = (
-      <div className="flex flex-col md:flex-row">
+      <div id={resultsId} className="flex flex-col md:flex-row">
         <div className="min-w-0 flex-1">
-          <CatalogColumn products={left} startIndex={1} />
+          <CatalogColumn
+            products={left}
+            startIndex={1}
+            activeIndex={activeIndex}
+            setRowRef={setRowRef}
+            rowId={rowId}
+          />
         </div>
         {right.length ? (
           <>
@@ -81,7 +102,13 @@ export default function CatalogRatesCard({
               aria-hidden="true"
             />
             <div className="min-w-0 flex-1">
-              <CatalogColumn products={right} startIndex={left.length + 1} />
+              <CatalogColumn
+                products={right}
+                startIndex={left.length + 1}
+                activeIndex={activeIndex}
+                setRowRef={setRowRef}
+                rowId={rowId}
+              />
             </div>
           </>
         ) : null}
@@ -101,6 +128,12 @@ export default function CatalogRatesCard({
           placeholder="Search name, SKU, or barcode…"
           value={search}
           onChange={(event) => onSearchChange?.(event.target.value)}
+          onKeyDown={onSearchKeyDown}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={visibleProducts.length > 0}
+          aria-controls={resultsId}
+          aria-activedescendant={activeRowId}
           aria-label="Search rate list"
         />
       </div>

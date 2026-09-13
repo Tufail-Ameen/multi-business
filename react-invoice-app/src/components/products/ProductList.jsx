@@ -1,6 +1,7 @@
 import { faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Can } from "../../auth/guards";
+import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import { PERMISSIONS } from "../../lib/permissions";
 import { formatAmount } from "../../utils/invoice";
 import EmptyState from "../ui/EmptyState";
@@ -24,6 +25,17 @@ export default function ProductList({
   onDelete,
   onSelectProduct,
 }) {
+  const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
+    useSearchListKeyboard({
+      itemCount: products.length,
+      resetKey: search,
+      idPrefix: "product-search",
+      onActivate: (index) => {
+        const product = products[index];
+        if (product) onSelectProduct?.(product);
+      },
+    });
+
   const editButton = (product) => (
     <button
       type="button"
@@ -65,7 +77,10 @@ export default function ProductList({
     );
   } else {
     body = (
-      <table className="product-table w-full min-w-[52rem] md:min-w-full">
+      <table
+        id={resultsId}
+        className="product-table w-full min-w-[52rem] md:min-w-full"
+      >
         <thead>
           <tr>
             <th className="col-index text-left">#</th>
@@ -83,7 +98,12 @@ export default function ProductList({
         </thead>
         <tbody>
           {products.map((product, index) => (
-            <tr key={product.key || product.id}>
+            <tr
+              key={product.key || product.id}
+              id={rowId(index)}
+              ref={setRowRef(index)}
+              className={activeIndex === index ? "is-keyboard-active" : undefined}
+            >
               <td className="col-index text-left">{index + 1}</td>
               <td className="text-left">
                 <div className="store-thumb store-thumb-sm">
@@ -149,6 +169,12 @@ export default function ProductList({
           placeholder="Search name, SKU, or barcode…"
           value={search}
           onChange={(event) => onSearchChange?.(event.target.value)}
+          onKeyDown={onSearchKeyDown}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={products.length > 0}
+          aria-controls={resultsId}
+          aria-activedescendant={activeRowId}
           aria-label="Search products"
         />
       </div>

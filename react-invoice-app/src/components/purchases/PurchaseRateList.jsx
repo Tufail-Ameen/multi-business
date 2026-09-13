@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import EmptyState from "../ui/EmptyState";
 import { formatCell, formatRate, formatRateDate, RateChange, VendorRateCell } from "./rateDisplay";
 
@@ -9,6 +10,7 @@ export default function PurchaseRateList({
   query = "",
   onQueryChange,
 }) {
+  const navigate = useNavigate();
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return products;
@@ -20,6 +22,16 @@ export default function PurchaseRateList({
         .includes(needle)
     );
   }, [products, query]);
+  const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
+    useSearchListKeyboard({
+      itemCount: visible.length,
+      resetKey: query,
+      idPrefix: "purchase-rate-search",
+      onActivate: (index) => {
+        const row = visible[index];
+        if (row?.productId != null) navigate(`/purchases/rates/${row.productId}`);
+      },
+    });
 
   let body = null;
   if (isLoading) {
@@ -42,7 +54,10 @@ export default function PurchaseRateList({
     );
   } else {
     body = (
-      <table className="product-table w-full min-w-[60rem] md:min-w-full">
+      <table
+        id={resultsId}
+        className="product-table w-full min-w-[60rem] md:min-w-full"
+      >
         <thead>
           <tr>
             <th className="col-index text-left">#</th>
@@ -56,7 +71,12 @@ export default function PurchaseRateList({
         </thead>
         <tbody>
           {visible.map((row, index) => (
-            <tr key={row.productId}>
+            <tr
+              key={row.productId}
+              id={rowId(index)}
+              ref={setRowRef(index)}
+              className={activeIndex === index ? "is-keyboard-active" : undefined}
+            >
               <td className="col-index text-left">{index + 1}</td>
               <td className="table-text-size text-left">
                 <Link
@@ -100,6 +120,12 @@ export default function PurchaseRateList({
           placeholder="Search product or vendor…"
           value={query}
           onChange={(event) => onQueryChange?.(event.target.value)}
+          onKeyDown={onSearchKeyDown}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={visible.length > 0}
+          aria-controls={resultsId}
+          aria-activedescendant={activeRowId}
           aria-label="Search vendor rates"
         />
       </div>

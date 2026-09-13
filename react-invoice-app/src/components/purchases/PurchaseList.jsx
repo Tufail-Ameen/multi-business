@@ -1,8 +1,9 @@
 import { faEye, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Can } from "../../auth/guards";
+import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import { PERMISSIONS } from "../../lib/permissions";
 import { formatAmount, formatInvoiceDate } from "../../utils/invoice";
 import EmptyState from "../ui/EmptyState";
@@ -62,10 +63,21 @@ export default function PurchaseList({
   onStatusChange,
   onDelete,
 }) {
+  const navigate = useNavigate();
   const visiblePurchases = useMemo(
     () => purchases.filter((purchase) => matchesQuery(purchase, query)),
     [purchases, query]
   );
+  const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
+    useSearchListKeyboard({
+      itemCount: visiblePurchases.length,
+      resetKey: `${query}:${statusFilter}`,
+      idPrefix: "purchase-search",
+      onActivate: (index) => {
+        const purchase = visiblePurchases[index];
+        if (purchase?.id != null) navigate(`/purchases/${purchase.id}`);
+      },
+    });
 
   let body = null;
   if (isLoading) {
@@ -88,7 +100,10 @@ export default function PurchaseList({
     );
   } else {
     body = (
-      <table className="product-table w-full min-w-[52rem] md:min-w-full">
+      <table
+        id={resultsId}
+        className="product-table w-full min-w-[52rem] md:min-w-full"
+      >
         <thead>
           <tr>
             <th className="col-index text-left">#</th>
@@ -106,7 +121,12 @@ export default function PurchaseList({
             const confirmed = statusKey(purchase.status) === "confirmed";
             const vendor = purchase.supplierName || `Vendor #${purchase.supplierId}`;
             return (
-              <tr key={purchase.id}>
+              <tr
+                key={purchase.id}
+                id={rowId(index)}
+                ref={setRowRef(index)}
+                className={activeIndex === index ? "is-keyboard-active" : undefined}
+              >
                 <td className="col-index text-left">{index + 1}</td>
                 <td className="table-text-size text-left">
                   <Link
@@ -182,6 +202,12 @@ export default function PurchaseList({
           placeholder="Search number, vendor, or date…"
           value={query}
           onChange={(event) => onQueryChange?.(event.target.value)}
+          onKeyDown={onSearchKeyDown}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={visiblePurchases.length > 0}
+          aria-controls={resultsId}
+          aria-activedescendant={activeRowId}
           aria-label="Search purchases"
         />
         <select

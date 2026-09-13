@@ -8,7 +8,7 @@ import { useGetClientRateListsQuery } from "../../services/invoiceApi";
 import EmptyState from "../ui/EmptyState";
 import RateListStatusBadge from "../rateLists/RateListStatusBadge";
 
-export default function ClientRateListsTab({ clientId }) {
+export default function ClientRateListsTab({ clientId, embedded = false }) {
   const navigate = useNavigate();
   const { data, isLoading, isError, error } = useGetClientRateListsQuery(
     { id: clientId, per_page: 100 },
@@ -83,22 +83,49 @@ export default function ClientRateListsTab({ clientId }) {
     );
   }
 
-  return (
-    <div>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+  const toolbar = (
+    <div
+      className={`flex flex-col gap-3 sm:flex-row sm:items-center ${
+        embedded ? "mb-3" : "mb-4 sm:items-start sm:justify-between"
+      }`}
+    >
+      {embedded ? (
+        <input
+          type="search"
+          className="form-control input-settings h-10 w-full rounded-[10px] md:max-w-[420px]"
+          placeholder="Search lists…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          aria-label="Search rate lists"
+        />
+      ) : (
         <p className="mb-0 textcklr small">
           {rateLists.length} rate list{rateLists.length === 1 ? "" : "s"} for this client
         </p>
-        <Can permission={PERMISSIONS.RATE_LISTS_CREATE}>
-          <Link
-            to={`/rate-lists/new?clientId=${encodeURIComponent(clientId)}`}
-            className="btn save-changes w-full px-3 py-2 sm:w-auto"
-          >
-            Assign items
-          </Link>
-        </Can>
-      </div>
+      )}
+      <Can permission={PERMISSIONS.RATE_LISTS_CREATE}>
+        <Link
+          to={`/rate-lists/new?clientId=${encodeURIComponent(clientId)}`}
+          className="btn save-changes w-full px-3 py-2 sm:ml-auto sm:w-auto"
+        >
+          Assign items
+        </Link>
+      </Can>
+    </div>
+  );
 
+  if (embedded) {
+    return (
+      <div>
+        {toolbar}
+        <div className="client-profile-table">{body}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {toolbar}
       <div className="form-card product-list-card client-list-card">
         <div className="flex items-center border-b border-[var(--color-border)] px-3 py-3">
           <input

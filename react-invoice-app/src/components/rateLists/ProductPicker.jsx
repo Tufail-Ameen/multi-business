@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import {
   formatDelta,
   formatPrice,
@@ -18,6 +19,9 @@ function EditorColumn({
   showHeaderCheck,
   allVisibleSelected,
   visibleProducts,
+  activeIndex = -1,
+  setRowRef,
+  rowId,
   onToggleVisible,
   onToggle,
   onSetRate,
@@ -49,6 +53,7 @@ function EditorColumn({
       <tbody>
         {products.map((product, index) => {
           const id = String(product.id);
+          const listIndex = startIndex - 1 + index;
           const isSelected = Boolean(selected[id]);
           const defaultPrice = selected[id]?.defaultPrice ?? productDefaultPrice(product);
           const customPrice = isSelected ? selected[id].customPrice : defaultPrice;
@@ -56,11 +61,16 @@ function EditorColumn({
           return (
             <tr
               key={product.key || id}
-              className={
+              id={rowId?.(listIndex)}
+              ref={setRowRef?.(listIndex)}
+              className={[
                 isSelected
                   ? "bg-[var(--color-primary-soft)] hover:bg-[var(--color-primary-soft)]"
-                  : undefined
-              }
+                  : undefined,
+                activeIndex === listIndex ? "is-keyboard-active" : undefined,
+              ]
+                .filter(Boolean)
+                .join(" ") || undefined}
             >
               <td className={`w-8 px-2 ${cellBorder}`}>
                 <input
@@ -140,6 +150,16 @@ export default function ProductPicker({
       }),
     [products, search, categoryId]
   );
+  const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
+    useSearchListKeyboard({
+      itemCount: visibleProducts.length,
+      resetKey: `${search}:${categoryId}`,
+      idPrefix: "rate-list-search",
+      onActivate: (index) => {
+        const product = visibleProducts[index];
+        if (product) onToggle(product);
+      },
+    });
   const selectedVisible = visibleProducts.filter((product) => selected[String(product.id)]).length;
   const allVisibleSelected = visibleProducts.length > 0 && selectedVisible === visibleProducts.length;
   const someVisibleSelected = selectedVisible > 0 && !allVisibleSelected;
@@ -172,7 +192,7 @@ export default function ProductPicker({
   } else {
     const { left, right } = splitCatalogColumns(visibleProducts);
     body = (
-      <div className="flex flex-col md:flex-row">
+      <div id={resultsId} className="flex flex-col md:flex-row">
         <div className="min-w-0 flex-1">
           <EditorColumn
             products={left}
@@ -182,6 +202,9 @@ export default function ProductPicker({
             showHeaderCheck
             allVisibleSelected={allVisibleSelected}
             visibleProducts={visibleProducts}
+            activeIndex={activeIndex}
+            setRowRef={setRowRef}
+            rowId={rowId}
             onToggleVisible={onToggleVisible}
             onToggle={onToggle}
             onSetRate={onSetRate}
@@ -201,6 +224,9 @@ export default function ProductPicker({
                 showHeaderCheck={false}
                 allVisibleSelected={allVisibleSelected}
                 visibleProducts={visibleProducts}
+                activeIndex={activeIndex}
+                setRowRef={setRowRef}
+                rowId={rowId}
                 onToggleVisible={onToggleVisible}
                 onToggle={onToggle}
                 onSetRate={onSetRate}
@@ -225,6 +251,12 @@ export default function ProductPicker({
           placeholder="Search name, SKU, or barcode…"
           value={search}
           onChange={(event) => onSearch(event.target.value)}
+          onKeyDown={onSearchKeyDown}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={visibleProducts.length > 0}
+          aria-controls={resultsId}
+          aria-activedescendant={activeRowId}
           aria-label="Search rate list"
         />
         <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center">

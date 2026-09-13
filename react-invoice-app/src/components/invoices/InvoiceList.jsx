@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Can } from "../../auth/guards";
+import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import { PERMISSIONS } from "../../lib/permissions";
 import { formatAmount, invoiceClientArea } from "../../utils/invoice";
 import EmptyState from "../ui/EmptyState";
@@ -60,6 +61,16 @@ export default function InvoiceList({
     () => invoices.filter((invoice) => matchesQuery(invoice, query)),
     [invoices, query]
   );
+  const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
+    useSearchListKeyboard({
+      itemCount: visibleInvoices.length,
+      resetKey: `${query}:${statusFilter}`,
+      idPrefix: "invoice-search",
+      onActivate: (index) => {
+        const invoice = visibleInvoices[index];
+        if (invoice?.id != null) navigate(`/invoices/${invoice.id}`);
+      },
+    });
 
   let body = null;
   if (isLoading) {
@@ -82,7 +93,10 @@ export default function InvoiceList({
     );
   } else {
     body = (
-      <table className="product-table w-full min-w-[52rem] md:min-w-full">
+      <table
+        id={resultsId}
+        className="product-table w-full min-w-[52rem] md:min-w-full"
+      >
         <thead>
           <tr>
             <th className="col-index text-left">#</th>
@@ -104,7 +118,9 @@ export default function InvoiceList({
             return (
               <tr
                 key={invoice.id}
-                className="is-clickable"
+                id={rowId(index)}
+                ref={setRowRef(index)}
+                className={`is-clickable${activeIndex === index ? " is-keyboard-active" : ""}`}
                 onClick={() => navigate(`/invoices/${invoice.id}`)}
               >
                 <td className="col-index text-left">{index + 1}</td>
@@ -197,6 +213,12 @@ export default function InvoiceList({
           placeholder="Search number, client, area, or date…"
           value={query}
           onChange={(event) => onQueryChange?.(event.target.value)}
+          onKeyDown={onSearchKeyDown}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={visibleInvoices.length > 0}
+          aria-controls={resultsId}
+          aria-activedescendant={activeRowId}
           aria-label="Search invoices"
         />
         <select

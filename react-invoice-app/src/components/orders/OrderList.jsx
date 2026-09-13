@@ -2,6 +2,7 @@ import { faEye } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import { formatAmount, formatInvoiceDate } from "../../utils/invoice";
 import EmptyState from "../ui/EmptyState";
 
@@ -74,6 +75,16 @@ export default function OrderList({
     () => orders.filter((order) => matchesQuery(order, query)),
     [orders, query]
   );
+  const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
+    useSearchListKeyboard({
+      itemCount: visibleOrders.length,
+      resetKey: `${query}:${statusFilter}`,
+      idPrefix: "order-search",
+      onActivate: (index) => {
+        const order = visibleOrders[index];
+        if (order?.id != null) navigate(`/orders/${order.id}`);
+      },
+    });
 
   let body = null;
   if (isLoading) {
@@ -96,7 +107,10 @@ export default function OrderList({
     );
   } else {
     body = (
-      <table className="product-table w-full min-w-[56rem] md:min-w-full">
+      <table
+        id={resultsId}
+        className="product-table w-full min-w-[56rem] md:min-w-full"
+      >
         <thead>
           <tr>
             <th className="col-index text-left">#</th>
@@ -114,7 +128,9 @@ export default function OrderList({
           {visibleOrders.map((order, index) => (
             <tr
               key={order.id}
-              className="is-clickable"
+              id={rowId(index)}
+              ref={setRowRef(index)}
+              className={`is-clickable${activeIndex === index ? " is-keyboard-active" : ""}`}
               onClick={() => navigate(`/orders/${order.id}`)}
             >
               <td className="col-index text-left">{index + 1}</td>
@@ -183,6 +199,12 @@ export default function OrderList({
           placeholder="Search number, client, area, or status…"
           value={query}
           onChange={(event) => onQueryChange?.(event.target.value)}
+          onKeyDown={onSearchKeyDown}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={visibleOrders.length > 0}
+          aria-controls={resultsId}
+          aria-activedescendant={activeRowId}
           aria-label="Search orders"
         />
         <select

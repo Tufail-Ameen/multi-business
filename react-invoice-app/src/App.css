@@ -1108,6 +1108,15 @@ textarea {
   background: var(--color-primary-soft);
 }
 
+.product-table tbody tr.is-keyboard-active {
+  background: var(--color-primary-soft);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.product-table tbody tr.is-keyboard-active td.col-actions {
+  background: var(--color-primary-soft);
+}
+
 .product-table tbody tr.is-clickable {
   cursor: pointer;
 }
@@ -2094,8 +2103,13 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .invoice-rate-picker-row:hover,
-.invoice-rate-picker-row.is-selected {
+.invoice-rate-picker-row.is-selected,
+.invoice-rate-picker-row.is-keyboard-active {
   background: var(--color-primary-soft);
+}
+
+.invoice-rate-picker-row.is-keyboard-active {
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 .invoice-rate-picker-name {
@@ -3624,6 +3638,334 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .client-table-scroll {
   flex: 1;
   min-height: 0;
+}
+
+.client-profile {
+  width: 100%;
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.client-record-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 12px;
+  padding: 0.7rem 1.1rem;
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.client-record-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.2rem 0;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.client-record-back:hover {
+  color: var(--color-text);
+}
+
+.client-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.client-record-actions .btn {
+  min-height: 34px;
+  padding: 0.35rem 0.8rem;
+  border-radius: 9px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.client-record {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.client-record-letterhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding: 1rem 1.2rem 0.9rem;
+  position: relative;
+}
+
+.client-record-letterhead::after {
+  content: "";
+  position: absolute;
+  left: 1.2rem;
+  right: 1.2rem;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary) 0 72%, var(--color-accent) 72% 100%);
+}
+
+.client-record-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.client-record-mark {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.client-record-brand h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  color: #16362c;
+}
+
+.client-record-brand p,
+.client-record-brand a {
+  margin: 3px 0 0;
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.client-record-brand a:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.client-record-doctype {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  margin-left: auto;
+}
+
+.client-record-doctype span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+.client-record-doctype strong {
+  margin-top: 2px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.client-record-stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.client-record-stats > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.client-record-stats > div:last-child {
+  border-bottom: none;
+}
+
+.client-record-stats span {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+.client-record-stats strong {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.client-record-tabs {
+  display: flex;
+  gap: 0.15rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.client-record-tabs button {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.75rem 0.7rem 0.65rem;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+
+.client-record-tabs button.is-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.client-record-tabs button:hover {
+  color: var(--color-text);
+}
+
+.client-record-particulars {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin: 0;
+  padding: 0.2rem 1.25rem 0.85rem;
+}
+
+.client-record-row {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.client-record-row:last-child {
+  border-bottom: none;
+}
+
+.client-record-row dt {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.client-record-row dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.client-record-row a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.client-record-row a:hover {
+  text-decoration: underline;
+}
+
+.client-record-row.is-wide {
+  grid-column: 1 / -1;
+}
+
+.client-record-body {
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.client-profile-table {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.client-profile-table .product-table {
+  min-width: 40rem;
+}
+
+@media (min-width: 768px) {
+  .client-record-toolbar {
+    padding: 0.65rem 1.5rem;
+  }
+
+  .client-record-letterhead {
+    padding: 1.15rem 1.5rem 1rem;
+    align-items: center;
+  }
+
+  .client-record-letterhead::after {
+    left: 1.5rem;
+    right: 1.5rem;
+  }
+
+  .client-record-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .client-record-stats > div {
+    display: block;
+    padding: 0.95rem 1.5rem 1rem;
+    border-bottom: none;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .client-record-stats > div:last-child {
+    border-right: none;
+  }
+
+  .client-record-stats span {
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+
+  .client-record-stats strong {
+    font-size: 1.15rem;
+  }
+
+  .client-record-tabs {
+    padding: 0 1.25rem;
+  }
+
+  .client-record-particulars {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 2.75rem;
+    padding: 0.35rem 1.5rem 1rem;
+  }
+
+  .client-record-body {
+    padding: 1.15rem 1.35rem 1.4rem;
+  }
 }
 
 .invoice-doc {

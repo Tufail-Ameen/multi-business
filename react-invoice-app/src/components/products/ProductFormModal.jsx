@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from "formik";
 import { useEffect, useMemo } from "react";
 import * as Yup from "yup";
+import { calcNetRate } from "../../lib/normalizeProduct";
 import StatusToggle from "../ui/StatusToggle";
 
 const UNIT_OPTIONS = ["pcs", "kg", "box", "pack", "liter", "meter", "dozen"];
@@ -16,6 +17,14 @@ const requiredMoney = (message) =>
     .required(message)
     .min(0, "Must be 0 or more");
 
+const optionalPercent = Yup.number()
+  .transform((value, originalValue) =>
+    originalValue === "" || originalValue == null ? undefined : value
+  )
+  .typeError("Must be a number")
+  .min(0, "Must be 0 or more")
+  .max(100, "Must be 100 or less");
+
 const productSchema = Yup.object({
   name: Yup.string().required("Name required"),
   sku: Yup.string().trim(),
@@ -23,9 +32,11 @@ const productSchema = Yup.object({
   brand: Yup.string().trim(),
   categoryId: Yup.string().required("Category required"),
   unit: Yup.string().default("pcs"),
-  purchasePrice: requiredMoney("Purchase price required"),
-  salePrice: requiredMoney("Sale price required"),
-  printRate: requiredMoney("Printed price required"),
+  tpRate: requiredMoney("TP rate required"),
+  discountPercent: optionalPercent,
+  purchasePrice: requiredMoney("Purchase rate required"),
+  salePrice: requiredMoney("Sale rate required"),
+  printRate: requiredMoney("Printed rate required"),
   minimumStockLevel: Yup.number().integer().min(0).required("Min stock required"),
   openingStock: Yup.number().integer().min(0),
   description: Yup.string(),
@@ -41,6 +52,8 @@ const emptyProductForm = {
   brand: "",
   categoryId: "",
   unit: "pcs",
+  tpRate: "",
+  discountPercent: "",
   purchasePrice: "",
   salePrice: "",
   printRate: "",
@@ -61,6 +74,8 @@ function productToForm(product) {
     brand: product.brand ?? "",
     categoryId: product.categoryId != null ? String(product.categoryId) : "",
     unit: product.unit || "pcs",
+    tpRate: product.tpRate ?? "",
+    discountPercent: product.discountPercent ?? "",
     purchasePrice: product.purchasePrice ?? "",
     salePrice: product.salePrice ?? product.price ?? "",
     printRate: product.printRate ?? product.wholesalePrice ?? "",
@@ -79,6 +94,9 @@ function toOptionalNumber(value) {
 
 export function toProductPayload(values) {
   const printRate = toOptionalNumber(values.printRate);
+  const tpRate = toOptionalNumber(values.tpRate);
+  const discountPercent = toOptionalNumber(values.discountPercent);
+  const purchasePrice = toOptionalNumber(values.purchasePrice);
   return {
     name: values.name.trim(),
     sku: values.sku?.trim() || null,
@@ -86,7 +104,10 @@ export function toProductPayload(values) {
     brand: values.brand?.trim() || null,
     categoryId: values.categoryId ? Number(values.categoryId) : null,
     unit: values.unit || "pcs",
-    purchasePrice: toOptionalNumber(values.purchasePrice),
+    tpRate,
+    discountPercent,
+    netRate: purchasePrice,
+    purchasePrice,
     salePrice: toOptionalNumber(values.salePrice),
     printRate,
     wholesalePrice: printRate,
@@ -98,6 +119,15 @@ export function toProductPayload(values) {
 
 function ProductFormFields({ editing, categories }) {
   const { values, setFieldValue } = useFormikContext();
+
+  useEffect(() => {
+    const next = calcNetRate(values.tpRate, values.discountPercent);
+    const nextValue = next == null ? "" : next;
+    if (String(values.purchasePrice) !== String(nextValue)) {
+      setFieldValue("purchasePrice", nextValue, false);
+    }
+  }, [values.tpRate, values.discountPercent, values.purchasePrice, setFieldValue]);
+
   const unitOptions = useMemo(() => {
     const options = [...UNIT_OPTIONS];
     if (values.unit && !options.includes(values.unit)) options.unshift(values.unit);
@@ -129,6 +159,7 @@ function ProductFormFields({ editing, categories }) {
           />
           <ErrorMessage name="name" component="div" className="invoice-field-error" />
         </div>
+        {/* Optional — uncomment when needed
         <div className="invoice-field">
           <label className="invoice-label" htmlFor="product-sku">
             SKU
@@ -151,9 +182,11 @@ function ProductFormFields({ editing, categories }) {
             placeholder="Optional"
           />
         </div>
+        */}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {/* Optional — uncomment when needed
         <div className="invoice-field">
           <label className="invoice-label" htmlFor="product-brand">
             Brand
@@ -165,6 +198,7 @@ function ProductFormFields({ editing, categories }) {
             placeholder="Optional"
           />
         </div>
+        */}
         <div className="invoice-field">
           <label className="invoice-label" htmlFor="product-unit">
             Unit
@@ -200,40 +234,76 @@ function ProductFormFields({ editing, categories }) {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="invoice-field">
+          <label className="invoice-label" htmlFor="product-tp">
+            TP rate
+          </label>
+          <Field
+            id="product-tp"
+            name="tpRate"
+            type="number"
+            min="0"
+            step="any"
+            className="form-control input-settings"
+          />
+          <ErrorMessage name="tpRate" component="div" className="invoice-field-error" />
+        </div>
+        <div className="invoice-field">
+          <label className="invoice-label" htmlFor="product-less">
+            % less
+          </label>
+          <Field
+            id="product-less"
+            name="discountPercent"
+            type="number"
+            min="0"
+            max="100"
+            step="any"
+            className="form-control input-settings"
+          />
+          <ErrorMessage name="discountPercent" component="div" className="invoice-field-error" />
+        </div>
+        <div className="invoice-field">
           <label className="invoice-label" htmlFor="product-purchase">
-            Purchase price
+            Purchase rate
           </label>
           <Field
             id="product-purchase"
             name="purchasePrice"
             type="number"
             min="0"
-            className="form-control input-settings"
+            readOnly
+            tabIndex={-1}
+            className="form-control input-settings input-computed"
           />
           <ErrorMessage name="purchasePrice" component="div" className="invoice-field-error" />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="invoice-field">
           <label className="invoice-label" htmlFor="product-sale">
-            Sale price
+            Sale rate
           </label>
           <Field
             id="product-sale"
             name="salePrice"
             type="number"
             min="0"
+            step="any"
             className="form-control input-settings"
           />
           <ErrorMessage name="salePrice" component="div" className="invoice-field-error" />
         </div>
         <div className="invoice-field">
           <label className="invoice-label" htmlFor="product-print">
-            Printed price
+            Printed rate
           </label>
           <Field
             id="product-print"
             name="printRate"
             type="number"
             min="0"
+            step="any"
             className="form-control input-settings"
           />
           <ErrorMessage name="printRate" component="div" className="invoice-field-error" />
@@ -308,6 +378,7 @@ function ProductFormFields({ editing, categories }) {
           />
         </div>
       </div>
+      {/* Optional — uncomment when needed
       <div className="invoice-field">
         <label className="invoice-label" htmlFor="product-description">
           Description
@@ -319,6 +390,7 @@ function ProductFormFields({ editing, categories }) {
           placeholder="Optional notes"
         />
       </div>
+      */}
     </section>
   );
 }

@@ -1,10 +1,14 @@
 /** Normalize Express /products records for the generic catalog UI. */
 
-function calcNetRate(tpRate, discountPercent) {
+export function calcNetRate(tpRate, discountPercent) {
+  if (tpRate === "" || tpRate == null) return null;
   const tp = Number(tpRate);
-  const pct = Number(discountPercent);
   if (!Number.isFinite(tp) || tp < 0) return null;
-  if (!Number.isFinite(pct) || pct < 0) return tp;
+  if (discountPercent === "" || discountPercent == null) {
+    return Math.round(tp * 100) / 100;
+  }
+  const pct = Number(discountPercent);
+  if (!Number.isFinite(pct) || pct < 0) return Math.round(tp * 100) / 100;
   return Math.round(tp * (1 - pct / 100) * 100) / 100;
 }
 

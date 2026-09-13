@@ -637,6 +637,13 @@ export const invoiceApi = createApi({
         { type: "Client", id: "LIST" },
       ],
     }),
+    bulkRateListOutreach: builder.mutation({
+      query: (body) => ({
+        url: "/rate-lists/bulk-outreach",
+        method: "POST",
+        data: body,
+      }),
+    }),
     duplicateRateList: builder.mutation({
       query: (id) => ({ url: `/rate-lists/${id}/duplicate`, method: "POST" }),
       transformResponse: (response) => response?.rateList ?? response,
@@ -813,6 +820,7 @@ export const {
   useUpdateRateListMutation,
   useDeleteRateListMutation,
   useSendRateListMutation,
+  useBulkRateListOutreachMutation,
   useDuplicateRateListMutation,
   useGetPublicRateListQuery,
   useGetPublicStoreQuery,

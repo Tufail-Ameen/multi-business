@@ -509,6 +509,71 @@ test("send locks the list, public share works, resend keeps token unless rotated
   assert.equal(sendArchived.status, 409);
 });
 
+test("bulk outreach groups identical lists and skips shops with nothing to send", async () => {
+  const product = await createProduct(ownerA, businessAId, {
+    name: "Soap",
+    sku: `SOAP-BULK-${Date.now()}`,
+    salePrice: 50,
+  });
+  const sameA = await createClient(ownerA, businessAId, {
+    name: "Same A",
+    phone: "03001111001",
+  });
+  const sameB = await createClient(ownerA, businessAId, {
+    name: "Same B",
+    phone: "03001111002",
+  });
+  const custom = await createClient(ownerA, businessAId, {
+    name: "Custom Shop",
+    phone: "03001111003",
+  });
+  const noList = await createClient(ownerA, businessAId, {
+    name: "No List",
+    phone: "03001111004",
+  });
+  const noPhone = await createClient(ownerA, businessAId, {
+    name: "No Phone",
+    phone: "",
+  });
+
+  for (const shop of [sameA, sameB]) {
+    const created = await request("/rate-lists", {
+      method: "POST",
+      headers: tenantHeaders(ownerA, businessAId),
+      body: {
+        clientId: shop.id,
+        items: [{ productId: product.id, customPrice: 45 }],
+      },
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.payload));
+  }
+  const customList = await request("/rate-lists", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      clientId: custom.id,
+      items: [{ productId: product.id, customPrice: 70 }],
+    },
+  });
+  assert.equal(customList.status, 201, JSON.stringify(customList.payload));
+
+  const result = await request("/rate-lists/bulk-outreach", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      clientIds: [sameA.id, sameB.id, custom.id, noList.id, noPhone.id],
+    },
+  });
+  assert.equal(result.status, 200, JSON.stringify(result.payload));
+  assert.equal(result.payload.ready, 3);
+  assert.equal(result.payload.groups.length, 2);
+  assert.equal(result.payload.groups[0].kind, "shared");
+  assert.equal(result.payload.groups[0].recipients.length, 2);
+  assert.equal(result.payload.groups[1].kind, "custom");
+  const reasons = result.payload.skipped.map((row) => row.reason).sort();
+  assert.deepEqual(reasons, ["no_list", "no_phone"]);
+});
+
 test("expired public share returns 410; draft has no public access", async () => {
   const clientDoc = await createClient(ownerA, businessAId, {
     name: "Expiry Client",

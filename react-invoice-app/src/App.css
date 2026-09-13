@@ -1087,6 +1087,19 @@ textarea {
   text-align: right;
 }
 
+.product-table .col-select {
+  width: 2.25rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.product-table .col-select input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
 .product-table .col-index {
   width: 2.4rem;
   padding-left: 0.65rem;
@@ -2859,6 +2872,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin-top: 0.85rem;
 }
 
+.send-rate-meta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.send-rate-meta-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1.5rem;
+}
+
 .send-rate-modal-toolbar {
   display: grid;
   grid-template-columns: 1fr;
@@ -2901,6 +2927,26 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin: 0;
   font-weight: 650;
   color: var(--color-text);
+}
+
+.send-rate-handoff-progress {
+  margin: 0 0 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.send-rate-group + .send-rate-group {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.send-rate-group .send-rate-meta-list {
+  margin-top: 0;
+  margin-bottom: 0.85rem;
 }
 
 .send-rate-handoff-copy {

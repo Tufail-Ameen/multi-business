@@ -1,12 +1,16 @@
 import {
   catalogSelection,
   clientOutreachMessage,
+  formatBroadcastNumbers,
+  buildWhatsAppQueue,
   formatCatalogLine,
+  groupOutreachRecipients,
   isLocalhostOrigin,
   itemsFromRateList,
   matchesRateListQuery,
   paginateCatalogProducts,
   pickSendableRateList,
+  rateListFingerprint,
   productDefaultPrice,
   RATE_LIST_SORT,
   rateListItemsForMessage,
@@ -297,6 +301,75 @@ describe("pickSendableRateList", () => {
       { id: 3, status: "SENT", updatedAt: "2026-09-11T10:00:00.000Z" },
     ]);
     expect(picked.id).toBe(3);
+  });
+});
+
+describe("groupOutreachRecipients", () => {
+  test("splits identical lists from custom lists", () => {
+    const groups = groupOutreachRecipients([
+      {
+        fingerprint: rateListFingerprint([
+          { productId: 1, customPrice: 80 },
+          { productId: 2, customPrice: 40 },
+        ]),
+        phone: "03001111001",
+        name: "A",
+        items: [{ productId: 1, customPrice: 80 }],
+      },
+      {
+        fingerprint: rateListFingerprint([
+          { productId: 2, customPrice: 40 },
+          { productId: 1, customPrice: 80 },
+        ]),
+        phone: "03001111002",
+        name: "B",
+        items: [{ productId: 1, customPrice: 80 }],
+      },
+      {
+        fingerprint: rateListFingerprint([{ productId: 1, customPrice: 99 }]),
+        phone: "03001111003",
+        name: "C",
+        items: [{ productId: 1, customPrice: 99 }],
+      },
+    ]);
+    expect(groups[0].kind).toBe("shared");
+    expect(groups[0].recipients).toHaveLength(2);
+    expect(groups[1].kind).toBe("custom");
+    expect(formatBroadcastNumbers(groups[0].recipients)).toBe("03001111001\n03001111002");
+  });
+});
+
+describe("buildWhatsAppQueue", () => {
+  const products = [{ name: "Cap", unit: "pcs", customPrice: 80 }];
+
+  test("builds one pasteable chat link per shop", () => {
+    const queue = buildWhatsAppQueue(
+      [
+        { clientId: 1, name: "AlBaig Store", phone: "03014180382" },
+        { clientId: 2, name: "City Mart", phone: "03001234001" },
+      ],
+      { businessName: "Hamari shop", products }
+    );
+
+    expect(queue).toHaveLength(2);
+    expect(queue[0].href).toContain("phone=923014180382");
+    expect(queue[0].href).toContain(encodeURIComponent("Assalamualaikum AlBaig Store,"));
+    expect(queue[1].href).toContain("phone=923001234001");
+    expect(queue[1].href).toContain(encodeURIComponent("Assalamualaikum City Mart,"));
+    expect(queue[0].href).not.toBe(queue[1].href);
+  });
+
+  test("skips shops with no phone", () => {
+    const queue = buildWhatsAppQueue(
+      [
+        { clientId: 1, name: "No Phone", phone: "" },
+        { clientId: 2, name: "City Mart", phone: "03001234001" },
+      ],
+      { products }
+    );
+
+    expect(queue).toHaveLength(1);
+    expect(queue[0].name).toBe("City Mart");
   });
 });
 

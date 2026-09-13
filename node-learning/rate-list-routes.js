@@ -498,6 +498,156 @@ function registerRateListRoutes({
     }
   );
 
+  app.post(
+    "/rate-lists/bulk-outreach",
+    ...tenantRoute,
+    requirePermission("rate_lists.send"),
+    async (req, res, next) => {
+      try {
+        const rawIds = Array.isArray(req.body?.clientIds)
+          ? req.body.clientIds
+          : [];
+        const clientIds = [
+          ...new Set(rawIds.map(parsePositiveId).filter((id) => id != null)),
+        ];
+        if (!clientIds.length) {
+          throw new AppError(
+            400,
+            "VALIDATION_ERROR",
+            "Select at least one shop"
+          );
+        }
+        if (clientIds.length > 300) {
+          throw new AppError(
+            400,
+            "VALIDATION_ERROR",
+            "Select at most 300 shops at a time"
+          );
+        }
+
+        const [clients, lists] = await Promise.all([
+          db
+            .collection("clients")
+            .find({ ...tenantScope(req), id: { $in: clientIds } })
+            .toArray(),
+          db
+            .collection("rate_lists")
+            .find({
+              ...tenantScope(req),
+              clientId: { $in: clientIds },
+              status: { $ne: RATE_LIST_STATUSES.ARCHIVED },
+            })
+            .toArray(),
+        ]);
+        const clientById = new Map(clients.map((row) => [row.id, row]));
+        const listsByClient = new Map();
+        for (const list of lists) {
+          const bucket = listsByClient.get(list.clientId) || [];
+          bucket.push(list);
+          listsByClient.set(list.clientId, bucket);
+        }
+
+        const skipped = [];
+        const ready = [];
+        for (const clientId of clientIds) {
+          const client = clientById.get(clientId);
+          if (!client) {
+            skipped.push({
+              clientId,
+              name: null,
+              phone: null,
+              reason: "not_found",
+            });
+            continue;
+          }
+          const phone = String(client.phone || "").trim();
+          if (!phone) {
+            skipped.push({
+              clientId,
+              name: client.name || null,
+              phone: null,
+              reason: "no_phone",
+            });
+            continue;
+          }
+          const open = (listsByClient.get(clientId) || []).filter(
+            (list) => Array.isArray(list.items) && list.items.length > 0
+          );
+          const picked = open.sort((a, b) => {
+            const aTime = new Date(
+              a.updatedAt || a.sentAt || a.createdAt || 0
+            ).getTime();
+            const bTime = new Date(
+              b.updatedAt || b.sentAt || b.createdAt || 0
+            ).getTime();
+            return bTime - aTime;
+          })[0];
+          if (!picked) {
+            skipped.push({
+              clientId,
+              name: client.name || null,
+              phone,
+              reason: "no_list",
+            });
+            continue;
+          }
+          const items = (picked.items || []).map((item) => ({
+            productId: item.productId,
+            productName: item.productName,
+            unit: item.unit || "pcs",
+            customPrice: toMoney(item.customPrice),
+          }));
+          const fingerprint = items
+            .map((item) => `${item.productId}:${item.customPrice}`)
+            .sort()
+            .join("|");
+          ready.push({
+            clientId,
+            name: client.name || null,
+            phone,
+            rateListId: picked.id,
+            itemCount: items.length,
+            items,
+            fingerprint,
+          });
+        }
+
+        const grouped = new Map();
+        for (const row of ready) {
+          const bucket = grouped.get(row.fingerprint) || [];
+          bucket.push(row);
+          grouped.set(row.fingerprint, bucket);
+        }
+        const groups = [...grouped.values()]
+          .map((recipients) => ({
+            kind: recipients.length >= 2 ? "shared" : "custom",
+            fingerprint: recipients[0].fingerprint,
+            itemCount: recipients[0].itemCount,
+            items: recipients[0].items,
+            recipients: recipients.map((row) => ({
+              clientId: row.clientId,
+              name: row.name,
+              phone: row.phone,
+              rateListId: row.rateListId,
+            })),
+          }))
+          .sort((a, b) => {
+            if (a.kind !== b.kind) return a.kind === "shared" ? -1 : 1;
+            return b.recipients.length - a.recipients.length;
+          });
+
+        res.json({
+          selected: clientIds.length,
+          ready: ready.length,
+          skipped,
+          groups,
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
   app.get(
     "/clients/:clientId/rate-lists",
     ...tenantRoute,

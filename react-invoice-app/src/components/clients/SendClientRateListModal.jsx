@@ -25,6 +25,7 @@ import {
   useGetClientRateListsQuery,
   useGetRateListQuery,
 } from "../../services/invoiceApi";
+import WhatsAppHandoff from "./WhatsAppHandoff";
 
 const EMPTY_LISTS = [];
 const SORT_STORAGE_KEY = "rateListSendSort";
@@ -288,20 +289,7 @@ export default function SendClientRateListModal({ client, onClose }) {
 
         <div className="send-rate-modal-body">
           {handoff ? (
-            <div className="send-rate-handoff">
-              <p className="send-rate-handoff-title">Open this chat in your WhatsApp tab</p>
-              <p className="send-rate-handoff-copy">
-                A new WhatsApp tab would sign you out of the one that is already open.
-                Paste the copied link in that tab&apos;s address bar so the shop chat
-                opens there with the list already typed.
-              </p>
-              <ol className="send-rate-handoff-steps">
-                <li>Click the WhatsApp tab that is already open</li>
-                <li>
-                  Press <kbd>⌘L</kbd> (address bar), then <kbd>⌘V</kbd>, then Enter
-                </li>
-              </ol>
-            </div>
+            <WhatsAppHandoff />
           ) : (
             <>
               {!waiting && !sendable.length ? (

@@ -32,19 +32,25 @@ export default function ClientList({
   onEdit,
   onDelete,
   onSend,
+  selectedIds,
+  onToggleSelected,
+  onToggleAllVisible,
   canEditPermission,
   canDeletePermission,
   canSendPermission,
 }) {
   const navigate = useNavigate();
   const { clients, isLoading } = useClients(
-    query.trim() ? { q: query.trim() } : {}
+    query.trim() ? { q: query.trim(), per_page: 500 } : { per_page: 500 }
   );
 
   const visibleClients = useMemo(
     () => clients.filter((client) => matchesQuery(client, query)),
     [clients, query]
   );
+  const allVisibleSelected =
+    visibleClients.length > 0 &&
+    visibleClients.every((client) => selectedIds?.has(String(client.id)));
   const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
     useSearchListKeyboard({
       itemCount: visibleClients.length,
@@ -119,6 +125,14 @@ export default function ClientList({
       >
         <thead>
           <tr>
+            <th className="col-select">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={() => onToggleAllVisible?.(visibleClients)}
+                aria-label="Select all visible shops"
+              />
+            </th>
             <th className="col-index text-left">#</th>
             <th className="text-left">Shop name</th>
             <th className="text-left">Phone</th>
@@ -137,6 +151,14 @@ export default function ClientList({
               ref={setRowRef(index)}
               className={activeIndex === index ? "is-keyboard-active" : undefined}
             >
+              <td className="col-select">
+                <input
+                  type="checkbox"
+                  checked={Boolean(selectedIds?.has(String(client.id)))}
+                  onChange={() => onToggleSelected?.(client)}
+                  aria-label={`Select ${client.name || "shop"}`}
+                />
+              </td>
               <td className="col-index text-left">{index + 1}</td>
               <td className="table-text-size text-left">
                 {client.id != null ? (

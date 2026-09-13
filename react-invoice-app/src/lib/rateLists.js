@@ -345,6 +345,71 @@ export function pickSendableRateList(rateLists) {
   })[0];
 }
 
+export function rateListFingerprint(items) {
+  return (items || [])
+    .map((item) => {
+      const id = item?.productId ?? item?.id;
+      const price =
+        toMoneyNumber(item?.customPrice ?? item?.price) ?? productDefaultPrice(item) ?? 0;
+      return `${id}:${price}`;
+    })
+    .filter((part) => !part.startsWith("undefined:") && !part.startsWith("null:"))
+    .sort()
+    .join("|");
+}
+
+export function groupOutreachRecipients(rows) {
+  const byKey = new Map();
+  for (const row of rows || []) {
+    const key = row.fingerprint || "";
+    if (!key) continue;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(row);
+  }
+  return [...byKey.values()]
+    .map((recipients) => ({
+      kind: recipients.length >= 2 ? "shared" : "custom",
+      fingerprint: recipients[0].fingerprint,
+      itemCount: recipients[0].itemCount || recipients[0].items?.length || 0,
+      items: recipients[0].items || [],
+      recipients,
+    }))
+    .sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === "shared" ? -1 : 1;
+      return b.recipients.length - a.recipients.length;
+    });
+}
+
+export function formatBroadcastNumbers(recipients) {
+  return (recipients || [])
+    .map((row) => String(row.phone || "").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function buildWhatsAppQueue(recipients, { businessName, products = [], shareUrl = "" } = {}) {
+  return (recipients || [])
+    .filter((row) => whatsappDigits(row?.phone))
+    .map((row) => {
+      const message = clientOutreachMessage({
+        clientName: row.name,
+        businessName,
+        shareUrl,
+        products,
+      });
+      const { href, mode } = whatsappPrefillHref(message, row.phone);
+      return {
+        clientId: row.clientId,
+        name: row.name,
+        phone: row.phone,
+        itemCount: products.length,
+        message,
+        href,
+        mode,
+      };
+    });
+}
+
 export function clientOutreachMessage({
   clientName,
   businessName,

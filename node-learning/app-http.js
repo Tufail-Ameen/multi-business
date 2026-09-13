@@ -1114,7 +1114,10 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
             { country: rx },
           ];
         }
-        const paging = parseListPagination(req.query);
+        const paging = parseListPagination(req.query, {
+          defaultLimit: 50,
+          maxLimit: 500,
+        });
         const { rows, pagination } = await paginateFind(
           db.collection("clients"),
           filter,

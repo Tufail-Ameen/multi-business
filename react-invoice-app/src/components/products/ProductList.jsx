@@ -1,5 +1,6 @@
-import { faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faPen, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useEffect, useState } from "react";
 import { Can } from "../../auth/guards";
 import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import { PERMISSIONS } from "../../lib/permissions";
@@ -16,6 +17,53 @@ function formatMoney(value) {
   return formatAmount("Rs", value);
 }
 
+function ProductImageModal({ product, onClose }) {
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="invoice-modal" onClick={onClose} role="presentation">
+      <div
+        className="invoice-modal-panel product-image-modal-panel"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-image-modal-title"
+      >
+        <header className="invoice-modal-head">
+          <div>
+            <p className="invoice-modal-kicker">Product photo</p>
+            <h2 id="product-image-modal-title" className="invoice-modal-title">
+              {product.name}
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="invoice-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+        </header>
+        <div className="product-image-modal-body">
+          <img src={product.imageUrl} alt={product.name} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProductList({
   products = [],
   isLoading,
@@ -25,6 +73,7 @@ export default function ProductList({
   onDelete,
   onSelectProduct,
 }) {
+  const [previewProduct, setPreviewProduct] = useState(null);
   const { activeIndex, onSearchKeyDown, setRowRef, rowId, resultsId, activeRowId } =
     useSearchListKeyboard({
       itemCount: products.length,
@@ -106,9 +155,21 @@ export default function ProductList({
             >
               <td className="col-index text-left">{index + 1}</td>
               <td className="text-left">
-                <div className="store-thumb store-thumb-sm">
-                  {product.imageUrl ? <img src={product.imageUrl} alt="" /> : <span>—</span>}
-                </div>
+                {product.imageUrl ? (
+                  <button
+                    type="button"
+                    className="store-thumb store-thumb-sm store-thumb-btn"
+                    onClick={() => setPreviewProduct(product)}
+                    title={`View photo of ${product.name}`}
+                    aria-label={`View photo of ${product.name}`}
+                  >
+                    <img src={product.imageUrl} alt="" />
+                  </button>
+                ) : (
+                  <div className="store-thumb store-thumb-sm">
+                    <span>—</span>
+                  </div>
+                )}
               </td>
               <td className="table-text-size text-left">
                 <button
@@ -179,6 +240,9 @@ export default function ProductList({
         />
       </div>
       <div className="product-table-scroll client-table-scroll">{body}</div>
+      {previewProduct ? (
+        <ProductImageModal product={previewProduct} onClose={() => setPreviewProduct(null)} />
+      ) : null}
     </div>
   );
 }

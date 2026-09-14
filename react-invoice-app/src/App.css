@@ -5271,7 +5271,52 @@ a.invoice-slip-meta-row:hover {
 }
 
 .store-thumb-sm {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+}
+
+.store-thumb-sm img {
+  object-fit: contain;
+}
+
+.store-thumb-btn {
+  padding: 0;
+  border: 1px solid transparent;
+  font: inherit;
+  color: inherit;
+  cursor: zoom-in;
+}
+
+.store-thumb-btn:hover,
+.store-thumb-btn:focus-visible {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.product-image-modal-panel {
+  width: min(680px, 100%);
+  max-height: min(92dvh, 880px);
+}
+
+.product-image-modal-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  min-width: 0;
+  overflow: auto;
+  padding: 20px 24px 28px;
+  background: var(--color-surface-2);
+}
+
+.product-image-modal-body img {
+  display: block;
+  max-width: 100%;
+  max-height: min(72dvh, 680px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--color-surface);
 }

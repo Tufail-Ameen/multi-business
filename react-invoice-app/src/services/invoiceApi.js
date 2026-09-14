@@ -1,5 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { normalizeClient, normalizeClientsResponse } from "../lib/normalizeClient";
+import { productImageSrc } from "../lib/productImage";
 import {
   normalizeProduct,
   normalizeProductsResponse,
@@ -671,7 +672,14 @@ export const invoiceApi = createApi({
       transformResponse: (response) => {
         const store = response?.store ?? response;
         if (!store || typeof store !== "object") return store;
-        return { ...store, pagination: response?.pagination };
+        const items = Array.isArray(store.items)
+          ? store.items.map((item) =>
+              item && typeof item === "object"
+                ? { ...item, imageUrl: productImageSrc(item.imageUrl) }
+                : item
+            )
+          : store.items;
+        return { ...store, items, pagination: response?.pagination };
       },
     }),
     placePublicStoreOrder: builder.mutation({

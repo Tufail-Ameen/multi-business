@@ -1,5 +1,7 @@
 /** Normalize Express /products records for the generic catalog UI. */
 
+import { productImageSrc } from "./productImage";
+
 export function calcNetRate(tpRate, discountPercent) {
   if (tpRate === "" || tpRate == null) return null;
   const tp = Number(tpRate);
@@ -57,7 +59,7 @@ export function normalizeProduct(product) {
     categoryId: product.categoryId ?? null,
     category: product.category ?? "",
     description: product.description ?? "",
-    imageUrl: product.imageUrl || null,
+    imageUrl: productImageSrc(product.imageUrl || null),
     purchasePrice,
     salePrice,
     printRate,

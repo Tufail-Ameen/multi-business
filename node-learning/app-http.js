@@ -1,5 +1,4 @@
 const crypto = require("crypto");
-const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const { MongoClient } = require("mongodb");
@@ -33,6 +32,10 @@ const {
   parseListPagination,
   paginateFind,
 } = require("./pagination");
+const {
+  registerProductImageRoutes,
+  syncDiskProductImagesToMongo,
+} = require("./product-image");
 
 class AppError extends Error {
   constructor(status, code, message, details = {}) {
@@ -257,10 +260,7 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
       req.method === "POST" && /\/products\/[^/]+\/image\/?$/.test(req.path);
     express.json({ limit: isProductImage ? "2mb" : "100kb" })(req, res, next);
   });
-  app.use(
-    "/uploads",
-    express.static(process.env.UPLOADS_DIR || path.join(__dirname, "uploads"))
-  );
+  registerProductImageRoutes(app, db);
 
   const authenticate = async (req, _res, next) => {
     try {
@@ -1337,6 +1337,14 @@ async function connectDatabase() {
   await mongoClient.connect();
   const db = mongoClient.db(process.env.MONGODB_DB || "InvoiceApp");
   await runMigrations(db, mongoClient);
+  try {
+    const synced = await syncDiskProductImagesToMongo(db);
+    if (synced > 0) {
+      console.log(`Synced ${synced} product image(s) from disk into MongoDB`);
+    }
+  } catch (error) {
+    console.warn("Product image disk sync skipped:", error.message);
+  }
   globalThis.__invoiceDb = { db, mongoClient };
   return globalThis.__invoiceDb;
 }

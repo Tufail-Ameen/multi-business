@@ -16,7 +16,7 @@ const {
   isAllowedImageUrl,
   parseImageBase64,
   saveProductImageBuffer,
-  removeLocalProductImage,
+  removeProductImage,
 } = require("./product-image");
 const {
   parseListPagination,
@@ -911,7 +911,7 @@ function registerCatalogRoutes({
       if (req.body.imageUrl !== undefined) {
         const imageUrl = parseOptionalImageUrl(req.body.imageUrl, AppError);
         if (existing.imageUrl && existing.imageUrl !== imageUrl) {
-          await removeLocalProductImage(existing.imageUrl);
+          await removeProductImage(db, existing.imageUrl);
         }
         updates.imageUrl = imageUrl;
       }
@@ -1036,6 +1036,7 @@ function registerCatalogRoutes({
           }
           try {
             imageUrl = await saveProductImageBuffer({
+              db,
               businessId: req.tenant.businessId,
               productId: existing.id,
               mimeType: parsed.mimeType,
@@ -1055,7 +1056,7 @@ function registerCatalogRoutes({
         }
 
         if (existing.imageUrl && existing.imageUrl !== imageUrl) {
-          await removeLocalProductImage(existing.imageUrl);
+          await removeProductImage(db, existing.imageUrl);
         }
 
         await db.collection("products").updateOne(filter, {

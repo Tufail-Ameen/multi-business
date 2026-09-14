@@ -547,6 +547,10 @@ async function ensureIndexes(db) {
   );
   await db.collection("products").createIndex({ businessId: 1, categoryId: 1 });
   await db.collection("products").createIndex({ businessId: 1, name: 1 });
+  await db.collection("product_images").createIndex({ key: 1 }, { unique: true });
+  await db
+    .collection("product_images")
+    .createIndex({ businessId: 1, filename: 1 });
 
   await db.collection("product_variants").createIndex(
     { businessId: 1, sku: 1 },

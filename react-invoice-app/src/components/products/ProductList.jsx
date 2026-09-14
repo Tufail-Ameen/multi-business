@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Can } from "../../auth/guards";
 import { useSearchListKeyboard } from "../../hooks/useSearchListKeyboard";
 import { PERMISSIONS } from "../../lib/permissions";
+import { productImageSrc } from "../../lib/productImage";
 import { formatAmount } from "../../utils/invoice";
 import EmptyState from "../ui/EmptyState";
 
@@ -57,7 +58,7 @@ function ProductImageModal({ product, onClose }) {
           </button>
         </header>
         <div className="product-image-modal-body">
-          <img src={product.imageUrl} alt={product.name} />
+          <img src={productImageSrc(product.imageUrl)} alt={product.name} />
         </div>
       </div>
     </div>
@@ -163,7 +164,7 @@ export default function ProductList({
                     title={`View photo of ${product.name}`}
                     aria-label={`View photo of ${product.name}`}
                   >
-                    <img src={product.imageUrl} alt="" />
+                    <img src={productImageSrc(product.imageUrl)} alt="" />
                   </button>
                 ) : (
                   <div className="store-thumb store-thumb-sm">

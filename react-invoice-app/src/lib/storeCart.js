@@ -26,9 +26,4 @@ export function cartCount(cart) {
   return Object.values(cart || {}).reduce((sum, qty) => sum + Number(qty || 0), 0);
 }
 
-export function productImageSrc(url) {
-  if (!url) return null;
-  const value = String(url).trim();
-  if (!value) return null;
-  return value;
-}
+export { productImageSrc } from "./productImage";

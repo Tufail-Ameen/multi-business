@@ -28,6 +28,14 @@ function StoreState({ title, message }) {
   );
 }
 
+function StoreCardImage({ src, name }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return <span>{(name || "?").slice(0, 1).toUpperCase()}</span>;
+  }
+  return <img src={src} alt="" onError={() => setFailed(true)} />;
+}
+
 export default function PublicStorePage() {
   const { token } = useParams();
   const { data: store, isLoading, isError, error } = useGetPublicStoreQuery(
@@ -223,11 +231,7 @@ export default function PublicStorePage() {
             return (
               <article key={item.productId} className="store-card">
                 <div className="store-card-image">
-                  {src ? (
-                    <img src={src} alt={item.name} />
-                  ) : (
-                    <span>{(item.name || "?").slice(0, 1).toUpperCase()}</span>
-                  )}
+                  <StoreCardImage src={src} name={item.name} />
                 </div>
                 <div className="store-card-body">
                   <h2>{item.name}</h2>

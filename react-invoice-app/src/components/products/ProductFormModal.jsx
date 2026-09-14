@@ -4,6 +4,7 @@ import { ErrorMessage, Field, Form, Formik, useFormikContext } from "formik";
 import { useEffect, useMemo } from "react";
 import * as Yup from "yup";
 import { calcNetRate } from "../../lib/normalizeProduct";
+import { productImageSrc } from "../../lib/productImage";
 import StatusToggle from "../ui/StatusToggle";
 
 const UNIT_OPTIONS = ["pcs", "kg", "box", "pack", "liter", "meter", "dozen"];
@@ -355,7 +356,7 @@ function ProductFormFields({ editing, categories }) {
         <div className="flex items-center gap-3">
           <div className="store-thumb">
             {values.imageBase64 || values.imageUrl ? (
-              <img src={values.imageBase64 || values.imageUrl} alt="" />
+              <img src={values.imageBase64 || productImageSrc(values.imageUrl)} alt="" />
             ) : (
               <span>No photo</span>
             )}

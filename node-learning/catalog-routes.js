@@ -132,7 +132,7 @@ function publicProduct(product, extras = {}) {
       product.discountPercent != null ? Number(product.discountPercent) : null,
     netRate: product.netRate != null ? Number(product.netRate) : null,
     printRate:
-      product.printRate != null ? Number(product.printRate) : salePrice,
+      product.printRate != null ? Number(product.printRate) : null,
     price: salePrice,
     createdBy: product.createdBy || null,
     updatedBy: product.updatedBy || null,
@@ -721,7 +721,10 @@ function registerCatalogRoutes({
           tpRate: toOptionalNumber(req.body.tpRate) ?? purchasePrice,
           discountPercent: toOptionalNumber(req.body.discountPercent),
           netRate: toOptionalNumber(req.body.netRate),
-          printRate: toOptionalNumber(req.body.printRate) ?? salePrice,
+          printRate:
+            req.body.printRate !== undefined
+              ? toOptionalNumber(req.body.printRate)
+              : salePrice,
           price: salePrice,
           createdBy: req.auth.user.id,
           updatedBy: req.auth.user.id,

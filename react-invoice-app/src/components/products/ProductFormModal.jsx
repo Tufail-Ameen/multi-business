@@ -17,13 +17,15 @@ const requiredMoney = (message) =>
     .required(message)
     .min(0, "Must be 0 or more");
 
-const optionalPercent = Yup.number()
-  .transform((value, originalValue) =>
-    originalValue === "" || originalValue == null ? undefined : value
-  )
-  .typeError("Must be a number")
-  .min(0, "Must be 0 or more")
-  .max(100, "Must be 100 or less");
+const optionalNumber = (message = "Must be a number") =>
+  Yup.number()
+    .transform((value, originalValue) =>
+      originalValue === "" || originalValue == null ? undefined : value
+    )
+    .typeError(message)
+    .min(0, "Must be 0 or more");
+
+const optionalPercent = optionalNumber().max(100, "Must be 100 or less");
 
 const productSchema = Yup.object({
   name: Yup.string().required("Name required"),
@@ -36,7 +38,7 @@ const productSchema = Yup.object({
   discountPercent: optionalPercent,
   purchasePrice: requiredMoney("Purchase rate required"),
   salePrice: requiredMoney("Sale rate required"),
-  printRate: requiredMoney("Printed rate required"),
+  printRate: optionalNumber("Must be a number"),
   minimumStockLevel: Yup.number().integer().min(0).required("Min stock required"),
   openingStock: Yup.number().integer().min(0),
   description: Yup.string(),

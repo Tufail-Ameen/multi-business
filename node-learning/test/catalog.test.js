@@ -189,7 +189,23 @@ test("product CRUD + SKU uniqueness per business", async () => {
   assert.equal(product.payload.currentStock, 100);
   assert.equal(product.payload.stock, 100);
   assert.equal(product.payload.salePrice, 120);
+  assert.equal(product.payload.printRate, 120);
   assert.equal(product.payload.stockStatus, "OK");
+
+  const openPrint = await request("/products", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      name: "Open print spray",
+      sku: `OPEN-PRINT-${Date.now()}`,
+      categoryId: cat.payload.id,
+      salePrice: 165,
+      printRate: null,
+    },
+  });
+  assert.equal(openPrint.status, 201, JSON.stringify(openPrint.payload));
+  assert.equal(openPrint.payload.salePrice, 165);
+  assert.equal(openPrint.payload.printRate, null);
 
   const dupSku = await request("/products", {
     method: "POST",

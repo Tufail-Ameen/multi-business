@@ -190,6 +190,8 @@ function publicStoreFromRateList(
             imageUrl: share.imageUrl,
             currentStock: share.currentStock,
             description: product?.description || null,
+            category: product?.category || null,
+            categoryId: product?.categoryId ?? null,
           };
         })
       : [],

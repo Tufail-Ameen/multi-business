@@ -467,6 +467,8 @@ function publicStoreFromCatalog(
       imageUrl: product.imageUrl || null,
       currentStock: productCurrentStock(product),
       description: product.description || null,
+      category: product.category || null,
+      categoryId: product.categoryId ?? null,
     })),
   };
 }

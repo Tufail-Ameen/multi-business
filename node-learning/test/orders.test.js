@@ -561,10 +561,17 @@ test("RBAC: operator can convert; booker cannot; inventory cannot view", async (
 });
 
 test("general catalog has a store link anyone can order from", async () => {
+  const beverages = await request("/categories", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: "Store Beverages" },
+  });
+  assert.equal(beverages.status, 201, JSON.stringify(beverages.payload));
   const tea = await createProduct(ownerA, businessAId, {
     name: "Catalog Tea",
     salePrice: 220,
     openingStock: 15,
+    categoryId: beverages.payload.id,
   });
   const jam = await createProduct(ownerA, businessAId, {
     name: "Catalog Jam",
@@ -604,6 +611,8 @@ test("general catalog has a store link anyone can order from", async () => {
   assert.equal(names.includes("Hidden Archived"), false);
   const teaItem = store.payload.store.items.find((item) => item.productId === tea.id);
   assert.equal(teaItem.price, 220);
+  assert.equal(teaItem.category, "Store Beverages");
+  assert.equal(teaItem.categoryId, beverages.payload.id);
 
   const missingCustomer = await request(`/public/store/${created.payload.storeToken}/orders`, {
     method: "POST",

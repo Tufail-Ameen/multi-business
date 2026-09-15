@@ -215,7 +215,7 @@ test("supplier phone must be 11 digits starting with 03", async () => {
   assert.equal(badPatch.status, 400);
 });
 
-test("supplier with purchase history is archived not hard-deleted", async () => {
+test("supplier with purchase or ledger history is hard-deleted", async () => {
   const supplier = await createSupplier(ownerA, businessAId, {
     name: "History Supplier",
   });
@@ -234,12 +234,23 @@ test("supplier with purchase history is archived not hard-deleted", async () => 
   });
   assert.equal(purchase.status, 201);
 
-  const archived = await request(`/suppliers/${supplier.id}`, {
+  const deleted = await request(`/suppliers/${supplier.id}`, {
     method: "DELETE",
     headers: tenantHeaders(ownerA, businessAId),
   });
-  assert.equal(archived.status, 200);
-  assert.equal(archived.payload.status, "ARCHIVED");
+  assert.equal(deleted.status, 200);
+  assert.equal(deleted.payload.message, "Vendor deleted");
+
+  const missing = await request(`/suppliers/${supplier.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(missing.status, 404);
+
+  const stillThere = await request(`/purchases/${purchase.payload.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(stillThere.status, 200);
+  assert.equal(stillThere.payload.supplierName, "History Supplier");
 });
 
 test("purchase draft does not change stock or create payable", async () => {
@@ -425,7 +436,7 @@ test("confirm creates PURCHASE movement, increases stock, creates payable", asyn
   assert.equal(cancel.payload.error.code, "CONFIRMED_CANCEL_DEFERRED");
 });
 
-test("supplier payment reduces outstanding; overpayment rejected", async () => {
+test("supplier payment reduces outstanding; overpayment becomes advance credit", async () => {
   const supplier = await createSupplier(ownerA, businessAId, {
     name: "Pay Supplier",
   });
@@ -451,14 +462,6 @@ test("supplier payment reduces outstanding; overpayment rejected", async () => {
   });
   assert.equal(confirmed.status, 200);
 
-  const over = await request(`/suppliers/${supplier.id}/payments`, {
-    method: "POST",
-    headers: tenantHeaders(ownerA, businessAId),
-    body: { amount: 150, paymentMethod: "cash" },
-  });
-  assert.equal(over.status, 400);
-  assert.equal(over.payload.error.code, "OVERPAYMENT_NOT_ALLOWED");
-
   const pay = await request(`/suppliers/${supplier.id}/payments`, {
     method: "POST",
     headers: tenantHeaders(ownerA, businessAId),
@@ -475,12 +478,44 @@ test("supplier payment reduces outstanding; overpayment rejected", async () => {
   assert.equal(detail.payload.totalPaid, 40);
   assert.equal(detail.payload.totalPurchases, 100);
 
+  const over = await request(`/suppliers/${supplier.id}/payments`, {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { amount: 80, paymentMethod: "cash" },
+  });
+  assert.equal(over.status, 201, JSON.stringify(over.payload));
+  const afterCredit = await request(`/suppliers/${supplier.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(afterCredit.payload.outstandingPayable, -20);
+  assert.equal(afterCredit.payload.totalPaid, 120);
+
   const invalid = await request(`/suppliers/${supplier.id}/payments`, {
     method: "POST",
     headers: tenantHeaders(ownerA, businessAId),
     body: { amount: 0 },
   });
   assert.equal(invalid.status, 400);
+});
+
+test("advance payment is allowed when outstanding is zero", async () => {
+  const supplier = await createSupplier(ownerA, businessAId, {
+    name: "Advance Supplier",
+  });
+  const pay = await request(`/suppliers/${supplier.id}/payments`, {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { amount: 2500, paymentMethod: "cash" },
+  });
+  assert.equal(pay.status, 201, JSON.stringify(pay.payload));
+  assert.equal(pay.payload.payment.amount, 2500);
+  assert.equal(pay.payload.ledgerEntry.balanceAfter, -2500);
+
+  const detail = await request(`/suppliers/${supplier.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(detail.payload.outstandingPayable, -2500);
+  assert.equal(detail.payload.totalPaid, 2500);
 });
 
 test("purchase tenant isolation on confirm and payment", async () => {

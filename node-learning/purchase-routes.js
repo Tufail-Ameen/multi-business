@@ -7,7 +7,6 @@ const { writeAuditLog, actorDisplayName } = require("./audit");
 const { MOVEMENT_TYPES, applyMovement } = require("./stockService");
 const {
   ENTRY_TYPES,
-  getOutstandingBalance,
   getSupplierFinancialSummary,
   appendLedgerEntry,
 } = require("./supplierLedgerService");
@@ -725,44 +724,30 @@ function registerPurchaseRoutes({
             supplierId: existing.id,
           });
 
-        if (purchaseCount > 0 || ledgerCount > 0) {
-          await db.collection("suppliers").updateOne(filter, {
-            $set: {
-              status: SUPPLIER_STATUSES.ARCHIVED,
-              updatedBy: req.auth.user.id,
-              updatedAt: new Date(),
-            },
-          });
-          const archived = await db.collection("suppliers").findOne(filter);
-
-          await writeAuditLog(db, {
-            businessId: req.tenant.businessId,
-            actorId: req.auth.user.id,
-            actorName: actorDisplayName(req.auth.user),
-            action: "SUPPLIER_ARCHIVED",
-            entity: "supplier",
-            entityId: archived.id,
-            oldValues: { status: existing.status },
-            newValues: { status: SUPPLIER_STATUSES.ARCHIVED },
-            meta: { reason: "has_purchase_or_ledger_history" },
-          });
-
-          res.json(publicSupplier(archived));
-          return;
-        }
-
+        await db.collection("supplier_payments").deleteMany({
+          businessId: req.tenant.businessId,
+          supplierId: existing.id,
+        });
+        await db.collection("supplier_ledger_entries").deleteMany({
+          businessId: req.tenant.businessId,
+          supplierId: existing.id,
+        });
         await db.collection("suppliers").deleteOne(filter);
 
         await writeAuditLog(db, {
           businessId: req.tenant.businessId,
           actorId: req.auth.user.id,
           actorName: actorDisplayName(req.auth.user),
-          action: "SUPPLIER_ARCHIVED",
+          action: "SUPPLIER_DELETED",
           entity: "supplier",
           entityId: existing.id,
-          oldValues: { status: existing.status },
+          oldValues: { status: existing.status, name: existing.name },
           newValues: { deleted: true },
-          meta: { hardDelete: true },
+          meta: {
+            hardDelete: true,
+            purchaseCount,
+            ledgerCount,
+          },
         });
 
         res.json({ message: "Vendor deleted", id: existing.id });
@@ -873,36 +858,11 @@ function registerPurchaseRoutes({
           throw new AppError(404, "SUPPLIER_NOT_FOUND", "Vendor not found");
         }
 
-        const outstanding = await getOutstandingBalance(db, {
-          businessId: req.tenant.businessId,
-          supplierId,
-        });
-        if (amount > outstanding + 0.001) {
-          throw new AppError(
-            400,
-            "OVERPAYMENT_NOT_ALLOWED",
-            `Payment ${amount} exceeds outstanding payable ${outstanding}. Advance supplier credits are not supported in Phase 3.`
-          );
-        }
-
         const session = mongoClient.startSession();
         let payment;
         let ledgerEntry;
         try {
           await session.withTransaction(async () => {
-            const outstandingNow = await getOutstandingBalance(
-              db,
-              { businessId: req.tenant.businessId, supplierId },
-              { session }
-            );
-            if (amount > outstandingNow + 0.001) {
-              throw new AppError(
-                400,
-                "OVERPAYMENT_NOT_ALLOWED",
-                `Payment ${amount} exceeds outstanding payable ${outstandingNow}`
-              );
-            }
-
             const { entry } = await appendLedgerEntry(
               db,
               {

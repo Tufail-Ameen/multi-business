@@ -407,7 +407,11 @@ export const invoiceApi = createApi({
     }),
     deleteSupplier: builder.mutation({
       query: (id) => ({ url: `/suppliers/${id}`, method: "DELETE" }),
-      invalidatesTags: [{ type: "Supplier", id: "LIST" }],
+      invalidatesTags: (result, error, id) => [
+        { type: "Supplier", id },
+        { type: "Supplier", id: "LIST" },
+        { type: "SupplierLedger", id },
+      ],
     }),
     getSupplierLedger: builder.query({
       query: (arg) => {

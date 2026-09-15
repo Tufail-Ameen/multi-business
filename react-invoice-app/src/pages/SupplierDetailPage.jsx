@@ -1,14 +1,15 @@
-import { faAngleLeft } from "@fortawesome/free-solid-svg-icons";
+import { faAngleLeft, faMoneyBill, faPen } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorMessage, Field, Form, Formik } from "formik";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import * as Yup from "yup";
 import { useAuth } from "../auth/AuthContext";
 import { Can } from "../auth/guards";
 import EmptyState from "../components/ui/EmptyState";
-import StatusBadge from "../components/ui/StatusBadge";
+import SupplierFormModal, { toSupplierPayload } from "../components/suppliers/SupplierFormModal";
+import { useSupplierMutations } from "../hooks/useSuppliers";
 import { PERMISSIONS } from "../lib/permissions";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
 import {
@@ -16,7 +17,7 @@ import {
   useGetSupplierLedgerQuery,
   useGetSupplierQuery,
 } from "../services/invoiceApi";
-import { formatAmount } from "../utils/invoice";
+import { formatAmount, formatInvoiceDate } from "../utils/invoice";
 
 const paymentSchema = Yup.object({
   amount: Yup.number().positive("Amount must be > 0").required("Amount required"),
@@ -25,13 +26,61 @@ const paymentSchema = Yup.object({
   notes: Yup.string().max(500),
 });
 
-function formatDate(value) {
-  if (!value) return "—";
-  try {
-    return new Date(value).toLocaleDateString();
-  } catch {
-    return String(value);
-  }
+function formatCell(value) {
+  if (value === null || value === undefined || value === "") return "—";
+  return value;
+}
+
+function initials(name) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "V";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function telHref(phone) {
+  const digits = String(phone || "").replace(/[^\d+]/g, "");
+  return digits.length >= 7 ? `tel:${digits}` : null;
+}
+
+function uniqueLine(parts) {
+  const seen = new Set();
+  return parts
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .filter((part) => {
+      const key = part.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join(" · ");
+}
+
+function statusLabel(status) {
+  return String(status || "").toUpperCase() === "ARCHIVED" ? "Archived" : "Active";
+}
+
+function entryTypeLabel(type) {
+  const key = String(type || "").trim().toLowerCase();
+  if (key === "purchase") return "Purchase";
+  if (key === "payment") return "Payment";
+  return type || "—";
+}
+
+function RecordRow({ label, value, href, wide = false }) {
+  const text = formatCell(value);
+  return (
+    <div className={`client-record-row${wide ? " is-wide" : ""}`}>
+      <dt>{label}</dt>
+      <dd>
+        {href && text !== "—" ? <a href={href}>{text}</a> : text}
+      </dd>
+    </div>
+  );
 }
 
 export default function SupplierDetailPage() {
@@ -39,6 +88,10 @@ export default function SupplierDetailPage() {
   const navigate = useNavigate();
   const { can } = useAuth();
   const canViewLedger = can(PERMISSIONS.SUPPLIER_LEDGER_VIEW);
+  const canPay = can(PERMISSIONS.SUPPLIER_PAYMENTS_CREATE);
+  const [tab, setTab] = useState("details");
+  const [editOpen, setEditOpen] = useState(false);
+  const { updateSupplier, isSaving } = useSupplierMutations();
 
   const {
     data: supplierData,
@@ -51,10 +104,7 @@ export default function SupplierDetailPage() {
     isLoading: ledgerLoading,
     isError: ledgerError,
     error: ledgerErr,
-  } = useGetSupplierLedgerQuery(
-    { id, per_page: 100 },
-    { skip: !canViewLedger }
-  );
+  } = useGetSupplierLedgerQuery({ id, per_page: 100 }, { skip: !canViewLedger });
   const [createPayment] = useCreateSupplierPaymentMutation();
 
   const supplier = supplierData?.supplier;
@@ -65,6 +115,8 @@ export default function SupplierDetailPage() {
     outstandingPayable:
       supplier?.outstandingPayable ?? ledgerData?.summary?.outstandingPayable ?? 0,
   };
+  const phoneHref = telHref(supplier?.phone);
+  const place = uniqueLine([supplier?.companyName, supplier?.city]);
 
   useEffect(() => {
     if (supplierError) toast.error(getErrorMessage(supplierErr, "Vendor not found"));
@@ -73,6 +125,17 @@ export default function SupplierDetailPage() {
   useEffect(() => {
     if (ledgerError) toast.error(getErrorMessage(ledgerErr, "Failed to load ledger"));
   }, [ledgerError, ledgerErr]);
+
+  const onSaveVendor = async (values, { resetForm }) => {
+    try {
+      await updateSupplier({ id: supplier.id, ...toSupplierPayload(values) }).unwrap();
+      toast.success("Vendor updated");
+      resetForm();
+      setEditOpen(false);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Save failed"));
+    }
+  };
 
   const onPayment = async (values, { resetForm }) => {
     try {
@@ -85,14 +148,15 @@ export default function SupplierDetailPage() {
       }).unwrap();
       toast.success("Payment recorded");
       resetForm();
+      if (canViewLedger) setTab("ledger");
     } catch (err) {
       toast.error(getErrorMessage(err, "Payment failed"));
     }
   };
 
-  if (supplierLoading || (canViewLedger && ledgerLoading)) {
+  if (supplierLoading) {
     return (
-      <div className="page-wrap">
+      <div className="client-profile">
         <p className="textcklr">Loading…</p>
       </div>
     );
@@ -105,149 +169,230 @@ export default function SupplierDetailPage() {
   }
 
   return (
-    <div className="page-wrap invoice-detail">
-      <button type="button" className="back-link" onClick={() => navigate("/vendors")}>
-        <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
-        Go back
-      </button>
-
-      <div className="detail-toolbar">
-        <div className="flex items-center gap-3">
-          <h1 className="page-title mb-0">{supplier.name}</h1>
-          <StatusBadge status={supplier.status} compact />
-        </div>
-      </div>
-
-      <div className="detail-card mb-4">
-        <div className="grid grid-cols-12 gap-3">
-          <div className="col-span-12 md:col-span-4">
-            <span className="block edit-discription">Company</span>
-            <span className="block date-bill-email">{supplier.companyName || "—"}</span>
-          </div>
-          <div className="col-span-12 md:col-span-4">
-            <span className="block edit-discription">Phone</span>
-            <span className="block date-bill-email">{supplier.phone || "—"}</span>
-          </div>
-          <div className="col-span-12 md:col-span-4">
-            <span className="block edit-discription">City</span>
-            <span className="block date-bill-email">{supplier.city || "—"}</span>
+    <div className="client-profile">
+      <article className="client-record">
+        <div className="client-record-toolbar no-print">
+          <button type="button" className="client-record-back" onClick={() => navigate("/vendors")}>
+            <FontAwesomeIcon icon={faAngleLeft} size="2xs" />
+            Vendors
+          </button>
+          <div className="client-record-actions">
+            <Can permission={PERMISSIONS.SUPPLIERS_UPDATE}>
+              <button type="button" className="btn edit py-2 px-3" onClick={() => setEditOpen(true)}>
+                <FontAwesomeIcon icon={faPen} />
+                Edit
+              </button>
+            </Can>
+            {canPay ? (
+              <button
+                type="button"
+                className="btn save-changes py-2 px-3"
+                onClick={() => setTab("payment")}
+              >
+                <FontAwesomeIcon icon={faMoneyBill} />
+                Record payment
+              </button>
+            ) : null}
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-12 gap-3">
-          <div className="col-span-4">
-            <span className="block edit-discription">Total Purchases</span>
-            <span className="block price">{formatAmount("Rs", summary.totalPurchases)}</span>
-          </div>
-          <div className="col-span-4">
-            <span className="block edit-discription">Total Paid</span>
-            <span className="block price">{formatAmount("Rs", summary.totalPaid)}</span>
-          </div>
-          <div className="col-span-4">
-            <span className="block edit-discription">Outstanding Payable</span>
-            <span className="block price">{formatAmount("Rs", summary.outstandingPayable)}</span>
-          </div>
-        </div>
-      </div>
-
-      <Can permission={PERMISSIONS.SUPPLIER_PAYMENTS_CREATE}>
-        <Formik
-          initialValues={{ amount: "", paymentMethod: "", reference: "", notes: "" }}
-          validationSchema={paymentSchema}
-          onSubmit={onPayment}
-        >
-          <Form className="form-card mb-4">
-            <h2 className="page-title">Record Payment</h2>
-            <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-12 md:col-span-3">
-                <label className="form-label input-clr" htmlFor="amount">
-                  Amount
-                </label>
-                <Field
-                  name="amount"
-                  id="amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="form-control input-settings"
-                />
-                <ErrorMessage name="amount" component="div" className="text-red-600" />
-              </div>
-              <div className="col-span-12 md:col-span-3">
-                <label className="form-label input-clr" htmlFor="paymentMethod">
-                  Payment Method
-                </label>
-                <Field
-                  name="paymentMethod"
-                  id="paymentMethod"
-                  className="form-control input-settings"
-                  placeholder="Cash / Bank / …"
-                />
-              </div>
-              <div className="col-span-12 md:col-span-3">
-                <label className="form-label input-clr" htmlFor="reference">
-                  Reference
-                </label>
-                <Field name="reference" id="reference" className="form-control input-settings" />
-              </div>
-              <div className="col-span-12 md:col-span-3">
-                <label className="form-label input-clr" htmlFor="notes">
-                  Notes
-                </label>
-                <Field name="notes" id="notes" className="form-control input-settings" />
-              </div>
-              <div className="col-span-12">
-                <button type="submit" className="btn input-clr1 save-changes py-2 px-4">
-                  Save Payment
-                </button>
-              </div>
+        <header className="client-record-letterhead">
+          <div className="client-record-brand">
+            <span className="client-record-mark" aria-hidden="true">
+              {initials(supplier.name)}
+            </span>
+            <div className="min-w-0">
+              <h1>{formatCell(supplier.name)}</h1>
+              {place ? <p>{place}</p> : null}
+              {phoneHref ? (
+                <a href={phoneHref}>{supplier.phone}</a>
+              ) : (
+                <p>{formatCell(supplier.phone)}</p>
+              )}
             </div>
-          </Form>
-        </Formik>
-      </Can>
-
-      <h2 className="page-title mb-3">Ledger</h2>
-      <Can
-        permission={PERMISSIONS.SUPPLIER_LEDGER_VIEW}
-        fallback={<p className="textcklr">You do not have permission to view the ledger.</p>}
-      >
-        {!entries.length ? (
-          <EmptyState title="No ledger entries" message="Confirmed purchases and payments appear here." />
-        ) : (
-          <div className="overflow-x-auto table-setting">
-            <table className="table m-0">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Date</th>
-                  <th>Type</th>
-                  <th>Reference</th>
-                  <th>Debit</th>
-                  <th>Credit</th>
-                  <th>Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((entry, index) => (
-                  <tr key={entry.id}>
-                    <td>{index + 1}</td>
-                    <td>{formatDate(entry.createdAt)}</td>
-                    <td>{entry.entryType}</td>
-                    <td>
-                      {entry.referenceType
-                        ? `${entry.referenceType}${entry.referenceId != null ? ` #${entry.referenceId}` : ""}`
-                        : entry.description || "—"}
-                    </td>
-                    <td>{formatAmount("Rs", entry.debit)}</td>
-                    <td>{formatAmount("Rs", entry.credit)}</td>
-                    <td>{formatAmount("Rs", entry.balanceAfter)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        )}
-      </Can>
+          <div className="client-record-doctype">
+            <span>Vendor record</span>
+            <strong>{statusLabel(supplier.status)}</strong>
+          </div>
+        </header>
+
+        <section className="client-record-stats" aria-label="Vendor summary">
+          <div>
+            <span>Purchases</span>
+            <strong>{formatAmount("Rs", summary.totalPurchases)}</strong>
+          </div>
+          <div>
+            <span>Paid</span>
+            <strong>{formatAmount("Rs", summary.totalPaid)}</strong>
+          </div>
+          <div>
+            <span>{Number(summary.outstandingPayable) < 0 ? "Advance" : "Outstanding"}</span>
+            <strong>
+              {formatAmount(
+                "Rs",
+                Number(summary.outstandingPayable) < 0
+                  ? Math.abs(summary.outstandingPayable)
+                  : summary.outstandingPayable
+              )}
+            </strong>
+          </div>
+        </section>
+
+        <nav className="client-record-tabs" aria-label="Vendor sections">
+          <button
+            type="button"
+            className={tab === "details" ? "is-active" : undefined}
+            onClick={() => setTab("details")}
+          >
+            Details
+          </button>
+          {canViewLedger ? (
+            <button
+              type="button"
+              className={tab === "ledger" ? "is-active" : undefined}
+              onClick={() => setTab("ledger")}
+            >
+              Ledger
+            </button>
+          ) : null}
+          {canPay ? (
+            <button
+              type="button"
+              className={tab === "payment" ? "is-active" : undefined}
+              onClick={() => setTab("payment")}
+            >
+              Payment
+            </button>
+          ) : null}
+        </nav>
+
+        {tab === "details" ? (
+          <dl className="client-record-particulars">
+            <RecordRow label="Phone" value={supplier.phone} href={phoneHref} />
+            <RecordRow label="Company" value={supplier.companyName} />
+            <RecordRow label="City" value={supplier.city} />
+            <RecordRow label="Email" value={supplier.email} href={supplier.email ? `mailto:${supplier.email}` : null} />
+            {supplier.address ? <RecordRow label="Address" value={supplier.address} wide /> : null}
+            <RecordRow label="Tax no." value={supplier.taxNumber} />
+            {supplier.notes ? <RecordRow label="Notes" value={supplier.notes} wide /> : null}
+          </dl>
+        ) : null}
+
+        {tab === "ledger" ? (
+          <div className="client-record-body">
+            {!canViewLedger ? (
+              <p className="textcklr mb-0">You do not have permission to view the ledger.</p>
+            ) : ledgerLoading ? (
+              <p className="textcklr mb-0">Loading ledger…</p>
+            ) : !entries.length ? (
+              <EmptyState
+                className="!border-0 !bg-transparent !shadow-none !p-6"
+                title="No ledger entries"
+                message="Confirmed purchases and payments appear here."
+              />
+            ) : (
+              <div className="invoice-doc-table-wrap vendor-ledger">
+                <table className="invoice-doc-table purchase-doc-table">
+                  <thead>
+                    <tr>
+                      <th className="is-index">#</th>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Reference</th>
+                      <th className="is-num">Debit</th>
+                      <th className="is-num">Credit</th>
+                      <th className="is-num">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {entries.map((entry, index) => (
+                      <tr key={entry.id}>
+                        <td className="is-index">{index + 1}</td>
+                        <td>{formatInvoiceDate(entry.createdAt)}</td>
+                        <td>{entryTypeLabel(entry.entryType)}</td>
+                        <td>
+                          {entry.referenceType
+                            ? `${entry.referenceType}${entry.referenceId != null ? ` #${entry.referenceId}` : ""}`
+                            : entry.description || "—"}
+                        </td>
+                        <td className="is-num">{formatAmount("Rs", entry.debit)}</td>
+                        <td className="is-num">{formatAmount("Rs", entry.credit)}</td>
+                        <td className="is-num is-total">{formatAmount("Rs", entry.balanceAfter)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {tab === "payment" && canPay ? (
+          <div className="client-record-body">
+            <Formik
+              initialValues={{ amount: "", paymentMethod: "", reference: "", notes: "" }}
+              validationSchema={paymentSchema}
+              onSubmit={onPayment}
+            >
+              <Form className="vendor-pay-grid">
+                <div className="invoice-field">
+                  <label className="invoice-label" htmlFor="amount">
+                    Amount
+                  </label>
+                  <Field
+                    name="amount"
+                    id="amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="form-control input-settings"
+                    placeholder="0"
+                  />
+                  <ErrorMessage name="amount" component="div" className="invoice-field-error" />
+                </div>
+                <div className="invoice-field">
+                  <label className="invoice-label" htmlFor="paymentMethod">
+                    Method
+                  </label>
+                  <Field
+                    name="paymentMethod"
+                    id="paymentMethod"
+                    className="form-control input-settings"
+                    placeholder="Cash / Bank"
+                  />
+                </div>
+                <div className="invoice-field">
+                  <label className="invoice-label" htmlFor="reference">
+                    Reference
+                  </label>
+                  <Field name="reference" id="reference" className="form-control input-settings" />
+                </div>
+                <div className="invoice-field">
+                  <label className="invoice-label" htmlFor="notes">
+                    Notes
+                  </label>
+                  <Field name="notes" id="notes" className="form-control input-settings" />
+                </div>
+                <div className="vendor-pay-actions">
+                  <button type="submit" className="btn save-changes py-2 px-4">
+                    Save payment
+                  </button>
+                </div>
+              </Form>
+            </Formik>
+          </div>
+        ) : null}
+      </article>
+
+      {editOpen ? (
+        <SupplierFormModal
+          supplier={supplier}
+          isSaving={isSaving}
+          onClose={() => setEditOpen(false)}
+          onSubmit={onSaveVendor}
+        />
+      ) : null}
     </div>
   );
 }

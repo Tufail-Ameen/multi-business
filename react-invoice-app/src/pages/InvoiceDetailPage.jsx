@@ -140,43 +140,44 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="invoice-doc">
-      <div className="invoice-doc-nav no-print">
-        <button type="button" className="back-link invoice-doc-back" onClick={() => navigate("/invoices")}>
-          <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
-          Invoices
-        </button>
-        <div className="invoice-doc-actions">
-          <Can permission={PERMISSIONS.INVOICES_PRINT}>
-            <button type="button" className="btn edit py-2 px-3" onClick={() => window.print()}>
-              <FontAwesomeIcon icon={faPrint} className="me-1" />
-              Print
-            </button>
-          </Can>
-          {status === "draft" && (
-            <Can permission={PERMISSIONS.INVOICES_CHANGE_STATUS}>
-              <button type="button" className="btn save py-2 px-3" onClick={() => setStatus("pending")}>
-                Send
+      <article className="invoice-doc-sheet invoice-slip has-toolbar">
+        <div className="client-record-toolbar no-print">
+          <button type="button" className="client-record-back" onClick={() => navigate("/invoices")}>
+            <FontAwesomeIcon icon={faAngleLeft} size="2xs" />
+            Invoices
+          </button>
+          <div className="client-record-actions">
+            <Can permission={PERMISSIONS.INVOICES_PRINT}>
+              <button type="button" className="btn edit py-2 px-3" onClick={() => window.print()}>
+                <FontAwesomeIcon icon={faPrint} />
+                Print
               </button>
             </Can>
-          )}
-          {(status === "draft" || status === "pending") && (
-            <Can permission={PERMISSIONS.INVOICES_CHANGE_STATUS}>
-              <button
-                type="button"
-                className="btn save py-2 px-3"
-                onClick={() => {
-                  if (!window.confirm(`Mark ${invoice.number} as paid?`)) return;
-                  setStatus("paid");
-                }}
-              >
-                Mark as paid
-              </button>
-            </Can>
-          )}
+            {status === "draft" && (
+              <Can permission={PERMISSIONS.INVOICES_CHANGE_STATUS}>
+                <button type="button" className="btn edit py-2 px-3" onClick={() => setStatus("pending")}>
+                  Send
+                </button>
+              </Can>
+            )}
+            {(status === "draft" || status === "pending") && (
+              <Can permission={PERMISSIONS.INVOICES_CHANGE_STATUS}>
+                <button
+                  type="button"
+                  className="btn save-changes py-2 px-3"
+                  onClick={() => {
+                    if (!window.confirm(`Mark ${invoice.number} as paid?`)) return;
+                    setStatus("paid");
+                  }}
+                >
+                  Mark as paid
+                </button>
+              </Can>
+            )}
+          </div>
         </div>
-      </div>
 
-      <article className="invoice-doc-sheet invoice-slip">
+        <div className="invoice-slip-body">
         <header className="invoice-slip-letterhead">
           <div className="invoice-slip-brand-block">
             {shopInitials ? (
@@ -316,6 +317,7 @@ export default function InvoiceDetailPage() {
           <p>Thank you for your business</p>
           <p>This is a computer-generated invoice.</p>
         </footer>
+        </div>
       </article>
     </div>
   );

@@ -6,6 +6,7 @@
  *   PAYMENT  debit   → outstanding payable decreases
  *
  * balanceAfter = previousOutstanding + credit - debit
+ * Negative balanceAfter is a supplier advance (you paid more than is owed).
  * Supplier.currentBalance is a cache updated in the same transaction.
  */
 

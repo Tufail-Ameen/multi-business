@@ -1,4 +1,4 @@
-import { faAngleLeft } from "@fortawesome/free-solid-svg-icons";
+import { faAngleLeft, faCheck, faPen } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -20,18 +20,31 @@ function statusKey(status) {
   return String(status || "").trim().toLowerCase();
 }
 
-function statusClass(status) {
-  const key = statusKey(status);
-  if (key === "confirmed") return "paid";
-  if (key === "cancelled") return "cancelled";
-  return "draft";
-}
-
 function statusLabel(status) {
   const key = statusKey(status);
   if (key === "confirmed") return "Confirmed";
   if (key === "cancelled") return "Cancelled";
   return "Draft";
+}
+
+function vendorInitials(name) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "V";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function phoneHref(value) {
+  const digits = String(value || "").replace(/[^\d+]/g, "");
+  return digits.length >= 7 ? `tel:${digits}` : null;
+}
+
+function money(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export default function PurchaseDetailPage() {
@@ -96,7 +109,7 @@ export default function PurchaseDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="invoice-doc">
+      <div className="client-profile">
         <p className="textcklr">Loading…</p>
       </div>
     );
@@ -111,99 +124,107 @@ export default function PurchaseDetailPage() {
   const items = purchase.items || [];
   const vendorName = purchase.supplierName || supplier?.name || `Vendor #${purchase.supplierId}`;
   const vendorPhone = supplier?.phone || "";
+  const vendorCompany = supplier?.companyName || "";
+  const callHref = phoneHref(vendorPhone);
   const currency = "Rs";
+  const hasDiscount = money(purchase.discount) > 0 || items.some((item) => money(item.discount) > 0);
+  const hasTax = money(purchase.tax) > 0 || items.some((item) => money(item.tax) > 0);
+  const units = items.reduce((sum, item) => sum + money(item.quantity), 0);
+  const place = [vendorCompany, formatInvoiceDate(purchase.purchaseDate)].filter(Boolean).join(" · ");
 
   return (
-    <div className="invoice-doc">
-      <div className="invoice-doc-nav no-print">
-        <button
-          type="button"
-          className="back-link invoice-doc-back"
-          onClick={() => navigate("/purchases")}
-        >
-          <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
-          Purchases
-        </button>
-        <div className="invoice-doc-actions">
-          {isDraft && (
-            <Can permission={PERMISSIONS.PURCHASES_UPDATE}>
-              <Link to={`/purchases/${id}/edit`} className="btn edit py-2 px-3">
-                Edit
-              </Link>
-            </Can>
-          )}
-          {isDraft && (
-            <Can permission={PERMISSIONS.PURCHASES_CONFIRM}>
-              <button type="button" className="btn save-changes py-2 px-3" onClick={onConfirm}>
-                Confirm
-              </button>
-            </Can>
-          )}
-          {isDraft && (
-            <Can permission={PERMISSIONS.PURCHASES_UPDATE}>
-              <button type="button" className="btn cancel py-2 px-3" onClick={onCancel}>
-                Cancel
-              </button>
-            </Can>
-          )}
-          {!isConfirmed && (
-            <Can permission={PERMISSIONS.PURCHASES_DELETE}>
-              <button type="button" className="btn delete py-2 px-3" onClick={onDelete}>
-                Delete
-              </button>
-            </Can>
-          )}
+    <div className="client-profile">
+      <article className="client-record purchase-record">
+        <div className="client-record-toolbar no-print">
+          <button
+            type="button"
+            className="client-record-back"
+            onClick={() => navigate("/purchases")}
+          >
+            <FontAwesomeIcon icon={faAngleLeft} size="2xs" />
+            Purchases
+          </button>
+          <div className="client-record-actions">
+            {isDraft && (
+              <Can permission={PERMISSIONS.PURCHASES_UPDATE}>
+                <Link to={`/purchases/${id}/edit`} className="btn edit py-2 px-3">
+                  <FontAwesomeIcon icon={faPen} />
+                  Edit
+                </Link>
+              </Can>
+            )}
+            {isDraft && (
+              <Can permission={PERMISSIONS.PURCHASES_CONFIRM}>
+                <button type="button" className="btn save-changes py-2 px-3" onClick={onConfirm}>
+                  <FontAwesomeIcon icon={faCheck} />
+                  Confirm
+                </button>
+              </Can>
+            )}
+            {isDraft && (
+              <Can permission={PERMISSIONS.PURCHASES_UPDATE}>
+                <button type="button" className="btn cancel py-2 px-3" onClick={onCancel}>
+                  Cancel
+                </button>
+              </Can>
+            )}
+            {!isConfirmed && (
+              <Can permission={PERMISSIONS.PURCHASES_DELETE}>
+                <button type="button" className="btn delete py-2 px-3" onClick={onDelete}>
+                  Delete
+                </button>
+              </Can>
+            )}
+          </div>
         </div>
-      </div>
 
-      {isDraft ? (
-        <p className="invoice-doc-note no-print">
-          Stock increases only when you confirm this purchase.
-        </p>
-      ) : null}
-
-      <article className="invoice-doc-sheet">
-        <header className="invoice-doc-hero">
-          <div>
-            <p className="invoice-doc-kicker">Purchase</p>
-            <div className="invoice-doc-title-row">
-              <h1>#{purchase.purchaseNumber}</h1>
-              <span className={`status-badge ${statusClass(purchase.status)}`}>
-                {statusLabel(purchase.status)}
-              </span>
+        <header className="client-record-letterhead">
+          <div className="client-record-brand">
+            <span className="client-record-mark" aria-hidden="true">
+              {vendorInitials(vendorName)}
+            </span>
+            <div className="min-w-0">
+              {purchase.supplierId != null ? (
+                <h1>
+                  <Link to={`/vendors/${purchase.supplierId}`} className="purchase-record-vendor">
+                    {vendorName}
+                  </Link>
+                </h1>
+              ) : (
+                <h1>{vendorName}</h1>
+              )}
+              {place ? <p>{place}</p> : null}
+              {callHref ? (
+                <a href={callHref}>{vendorPhone}</a>
+              ) : vendorPhone ? (
+                <p>{vendorPhone}</p>
+              ) : null}
             </div>
           </div>
-          <div className="invoice-doc-hero-amount">
+          <div className="client-record-doctype">
+            <span>Purchase order</span>
+            <strong>#{purchase.purchaseNumber}</strong>
+          </div>
+        </header>
+
+        <section className="client-record-stats" aria-label="Purchase summary">
+          <div>
+            <span>Status</span>
+            <strong>{statusLabel(purchase.status)}</strong>
+          </div>
+          <div>
+            <span>Quantity</span>
+            <strong>{units || "—"}</strong>
+          </div>
+          <div>
             <span>{isConfirmed ? "Remaining" : "Grand total"}</span>
             <strong>
               {formatAmount(currency, isConfirmed ? purchase.remainingAmount : purchase.grandTotal)}
             </strong>
           </div>
-        </header>
-
-        <section className="invoice-doc-meta">
-          <div>
-            <span className="invoice-doc-label">Vendor</span>
-            {purchase.supplierId != null ? (
-              <Link to={`/vendors/${purchase.supplierId}`} className="invoice-doc-client">
-                {vendorName}
-              </Link>
-            ) : (
-              <span className="invoice-doc-client">{vendorName}</span>
-            )}
-            {vendorPhone ? <p className="invoice-doc-muted">{vendorPhone}</p> : null}
-          </div>
-          <div>
-            <span className="invoice-doc-label">Purchase date</span>
-            <p className="invoice-doc-value">{formatInvoiceDate(purchase.purchaseDate)}</p>
-          </div>
-          <div>
-            <span className="invoice-doc-label">Notes</span>
-            <p className="invoice-doc-value">{purchase.notes || "—"}</p>
-          </div>
         </section>
 
-        <section className="invoice-doc-items">
+        <section className="purchase-record-items">
           <div className="invoice-doc-items-head">
             <h2>Items</h2>
             <span className="invoice-doc-count">
@@ -219,16 +240,16 @@ export default function PurchaseDetailPage() {
             />
           ) : (
             <div className="invoice-doc-table-wrap">
-              <table className="invoice-doc-table">
+              <table className="invoice-doc-table purchase-doc-table">
                 <thead>
                   <tr>
                     <th className="is-index">#</th>
                     <th>Item</th>
                     <th className="is-num">Qty</th>
                     <th className="is-num">Cost</th>
-                    <th className="is-num">Discount</th>
-                    <th className="is-num">Tax</th>
-                    <th className="is-num">Total</th>
+                    {hasDiscount ? <th className="is-num">Disc.</th> : null}
+                    {hasTax ? <th className="is-num">Tax</th> : null}
+                    <th className="is-num">Amount</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -239,11 +260,22 @@ export default function PurchaseDetailPage() {
                         <span className="invoice-doc-item-name">
                           {item.productNameSnapshot || `Product #${item.productId}`}
                         </span>
+                        {item.skuSnapshot ? (
+                          <span className="invoice-doc-muted">{item.skuSnapshot}</span>
+                        ) : (
+                          <span className="invoice-doc-muted">
+                            {item.quantity} × {formatAmount(currency, item.unitCost)}
+                          </span>
+                        )}
                       </td>
                       <td className="is-num">{item.quantity}</td>
                       <td className="is-num">{formatAmount(currency, item.unitCost)}</td>
-                      <td className="is-num">{formatAmount(currency, item.discount)}</td>
-                      <td className="is-num">{formatAmount(currency, item.tax)}</td>
+                      {hasDiscount ? (
+                        <td className="is-num">{formatAmount(currency, item.discount)}</td>
+                      ) : null}
+                      {hasTax ? (
+                        <td className="is-num">{formatAmount(currency, item.tax)}</td>
+                      ) : null}
                       <td className="is-num is-total">{formatAmount(currency, item.lineTotal)}</td>
                     </tr>
                   ))}
@@ -253,32 +285,43 @@ export default function PurchaseDetailPage() {
           )}
 
           {items.length ? (
-            <>
-              <div className="invoice-doc-totals">
-                <div className="invoice-doc-totals-card">
+            <div className="invoice-doc-totals">
+              <div className="invoice-doc-totals-card">
+                {hasDiscount || hasTax ? (
                   <div className="invoice-doc-totals-row">
                     <span>Subtotal</span>
                     <strong>{formatAmount(currency, purchase.subtotal)}</strong>
                   </div>
+                ) : null}
+                {hasDiscount ? (
                   <div className="invoice-doc-totals-row">
                     <span>Discount</span>
                     <strong>{formatAmount(currency, purchase.discount)}</strong>
                   </div>
+                ) : null}
+                {hasTax ? (
                   <div className="invoice-doc-totals-row">
                     <span>Tax</span>
                     <strong>{formatAmount(currency, purchase.tax)}</strong>
                   </div>
+                ) : null}
+                {isConfirmed ? (
                   <div className="invoice-doc-totals-row">
                     <span>Paid</span>
                     <strong>{formatAmount(currency, purchase.paidAmount)}</strong>
                   </div>
+                ) : null}
+                <div className="invoice-doc-totals-row is-grand">
+                  <span>{isConfirmed ? "Remaining" : "Grand total"}</span>
+                  <strong>
+                    {formatAmount(
+                      currency,
+                      isConfirmed ? purchase.remainingAmount : purchase.grandTotal
+                    )}
+                  </strong>
                 </div>
               </div>
-              <div className="invoice-doc-due">
-                <span>Remaining</span>
-                <strong>{formatAmount(currency, purchase.remainingAmount)}</strong>
-              </div>
-            </>
+            </div>
           ) : null}
         </section>
       </article>

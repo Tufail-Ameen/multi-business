@@ -1,4 +1,4 @@
-import { faAngleLeft, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faAngleLeft, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from "formik";
 import { useEffect, useMemo, useState } from "react";
@@ -9,6 +9,13 @@ import EmptyState from "../components/ui/EmptyState";
 import PurchaseRateHint from "../components/purchases/PurchaseRateHint";
 import { useProducts } from "../hooks/useProducts";
 import { useSuppliers } from "../hooks/useSuppliers";
+import {
+  applyProductCost,
+  emptyPurchaseLine,
+  patchPurchaseLine,
+  purchaseLineFromItem,
+  summarizePurchaseLines,
+} from "../lib/purchaseLines";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
 import {
   useCreatePurchaseMutation,
@@ -20,29 +27,7 @@ import { formatAmount } from "../utils/invoice";
 const schema = Yup.object({
   supplierId: Yup.string().required("Vendor required"),
   purchaseDate: Yup.string(),
-  notes: Yup.string().max(500),
 });
-
-function emptyLine() {
-  return {
-    key: Math.random().toString(36).slice(2),
-    productId: "",
-    variantId: "",
-    quantity: 1,
-    unitCost: 0,
-    discount: 0,
-    tax: 0,
-  };
-}
-
-function calcLine(line) {
-  const quantity = Number(line.quantity) || 0;
-  const unitCost = Number(line.unitCost) || 0;
-  const discount = Number(line.discount) || 0;
-  const tax = Number(line.tax) || 0;
-  const gross = quantity * unitCost;
-  return Math.round((gross - discount + tax) * 100) / 100;
-}
 
 export default function PurchaseFormPage() {
   const { id } = useParams();
@@ -51,18 +36,12 @@ export default function PurchaseFormPage() {
 
   const { suppliers } = useSuppliers({ status: "ACTIVE", limit: 100 });
   const { products } = useProducts({ status: "active", limit: 100 });
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-  } = useGetPurchaseQuery(id, { skip: !isEdit });
+  const { data, isLoading, isError, error } = useGetPurchaseQuery(id, { skip: !isEdit });
   const [createPurchase] = useCreatePurchaseMutation();
   const [updatePurchase] = useUpdatePurchaseMutation();
 
   const purchase = data?.purchase;
-
-  const [lines, setLines] = useState([emptyLine()]);
+  const [lines, setLines] = useState([emptyPurchaseLine()]);
 
   useEffect(() => {
     if (isError) toast.error(getErrorMessage(error, "Purchase not found"));
@@ -70,39 +49,12 @@ export default function PurchaseFormPage() {
 
   useEffect(() => {
     if (purchase?.items?.length) {
-      setLines(
-        purchase.items.map((item) => ({
-          key: Math.random().toString(36).slice(2),
-          productId: item.productId != null ? String(item.productId) : "",
-          variantId: item.variantId != null ? String(item.variantId) : "",
-          quantity: item.quantity ?? 1,
-          unitCost: item.unitCost ?? 0,
-          discount: item.discount ?? 0,
-          tax: item.tax ?? 0,
-        }))
-      );
+      setLines(purchase.items.map(purchaseLineFromItem));
     }
   }, [purchase]);
 
-  const preview = useMemo(() => {
-    const lineTotals = lines.map(calcLine);
-    const linesSubtotal = lineTotals.reduce((sum, t, i) => {
-      const qty = Number(lines[i].quantity) || 0;
-      const cost = Number(lines[i].unitCost) || 0;
-      return sum + qty * cost;
-    }, 0);
-    const linesDiscount = lines.reduce((s, l) => s + (Number(l.discount) || 0), 0);
-    const linesTax = lines.reduce((s, l) => s + (Number(l.tax) || 0), 0);
-    return {
-      lineTotals,
-      subtotal: Math.round(linesSubtotal * 100) / 100,
-      discount: Math.round(linesDiscount * 100) / 100,
-      tax: Math.round(linesTax * 100) / 100,
-      grandTotal: Math.round(
-        (linesSubtotal - linesDiscount + linesTax) * 100
-      ) / 100,
-    };
-  }, [lines]);
+  const preview = useMemo(() => summarizePurchaseLines(lines), [lines]);
+  const filledCount = lines.filter((line) => line.productId).length;
 
   if (isEdit && isLoading) {
     return (
@@ -137,19 +89,22 @@ export default function PurchaseFormPage() {
     purchaseDate: purchase?.purchaseDate
       ? new Date(purchase.purchaseDate).toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10),
-    notes: purchase?.notes || "",
   };
 
-  const updateLine = (key, patch) => {
-    setLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+  const updateLine = (key, field, value) => {
+    setLines((prev) =>
+      prev.map((line) => (line.key === key ? patchPurchaseLine(line, field, value) : line))
+    );
   };
 
   const onProductChange = (key, productId) => {
     const product = products.find((p) => String(p.id) === String(productId));
-    updateLine(key, {
-      productId,
-      unitCost: product?.purchasePrice ?? product?.costPrice ?? 0,
-    });
+    const catalogCost = product?.purchasePrice ?? product?.costPrice ?? "";
+    setLines((prev) =>
+      prev.map((line) =>
+        line.key === key ? applyProductCost(line, productId, catalogCost) : line
+      )
+    );
   };
 
   const saveDraft = async (values) => {
@@ -157,11 +112,8 @@ export default function PurchaseFormPage() {
       .filter((line) => line.productId)
       .map((line) => ({
         productId: Number(line.productId),
-        ...(line.variantId !== "" && line.variantId != null
-          ? { variantId: Number(line.variantId) }
-          : {}),
         quantity: Number(line.quantity),
-        unitCost: Number(line.unitCost),
+        unitCost: line.unitCost === "" ? NaN : Number(line.unitCost),
         discount: Number(line.discount) || 0,
         tax: Number(line.tax) || 0,
       }));
@@ -170,11 +122,18 @@ export default function PurchaseFormPage() {
       toast.error("Add at least one product line");
       return;
     }
+    if (items.some((item) => !item.quantity || item.quantity <= 0)) {
+      toast.error("Each line needs a quantity");
+      return;
+    }
+    if (items.some((item) => !Number.isFinite(item.unitCost) || item.unitCost < 0)) {
+      toast.error("Enter a total so piece cost can be calculated");
+      return;
+    }
 
     const payload = {
       supplierId: Number(values.supplierId),
       purchaseDate: values.purchaseDate || undefined,
-      notes: values.notes || undefined,
       items,
     };
 
@@ -194,7 +153,7 @@ export default function PurchaseFormPage() {
   };
 
   return (
-    <div className="page-wrap">
+    <div className="page-wrap purchase-form">
       <button
         type="button"
         className="back-link"
@@ -210,19 +169,20 @@ export default function PurchaseFormPage() {
         validationSchema={schema}
         onSubmit={saveDraft}
       >
-        <Form className="form-card">
-          <div className="invoices-header mb-3">
-            <p className="count-invoices-tect mb-0">
-              Saves as draft only. Stock increases when you confirm on the detail page.
-            </p>
-            <span className="btn draftbtn px-3 py-1" style={{ fontSize: "12px" }}>
-              Draft
-            </span>
+        <Form className="form-card purchase-form-card">
+          <div className="purchase-form-head">
+            <div>
+              <h1 className="purchase-form-title">{isEdit ? "Edit draft" : "New purchase"}</h1>
+              <p className="purchase-form-hint">
+                Saves as draft. Stock increases when you confirm on the detail page.
+              </p>
+            </div>
+            <span className="btn draftbtn px-3 py-1">Draft</span>
           </div>
 
-          <div className="mb-4 grid grid-cols-12 gap-3">
-            <div className="col-span-12 md:col-span-6">
-              <label className="form-label input-clr" htmlFor="supplierId">
+          <div className="purchase-form-meta">
+            <div className="invoice-field">
+              <label className="invoice-label" htmlFor="supplierId">
                 Vendor
               </label>
               <Field
@@ -239,11 +199,11 @@ export default function PurchaseFormPage() {
                   </option>
                 ))}
               </Field>
-              <ErrorMessage name="supplierId" component="div" className="text-red-600" />
+              <ErrorMessage name="supplierId" component="div" className="invoice-field-error" />
             </div>
-            <div className="col-span-12 md:col-span-3">
-              <label className="form-label input-clr" htmlFor="purchaseDate">
-                Purchase Date
+            <div className="invoice-field">
+              <label className="invoice-label" htmlFor="purchaseDate">
+                Purchase date
               </label>
               <Field
                 type="date"
@@ -252,55 +212,38 @@ export default function PurchaseFormPage() {
                 className="form-control input-settings"
               />
             </div>
-            <div className="col-span-12 md:col-span-3">
-              <label className="form-label input-clr" htmlFor="notes">
-                Notes
-              </label>
-              <Field name="notes" id="notes" className="form-control input-settings" />
-            </div>
           </div>
 
-          <h2 className="page-title mb-3">Line items</h2>
           <PurchaseLines
             lines={lines}
             products={products}
             preview={preview}
+            filledCount={filledCount}
             updateLine={updateLine}
             onProductChange={onProductChange}
             setLines={setLines}
           />
 
-          <button
-            type="button"
-            className="btn edit py-2 px-3 mb-4"
-            onClick={() => setLines((prev) => [...prev, emptyLine()])}
-          >
-            Add line
-          </button>
-
-          <div className="detail-card mb-4">
-            <div className="grid grid-cols-12 gap-2">
-              <div className="col-span-6 md:col-span-3">
-                <span className="block edit-discription">Subtotal</span>
-                <span className="block price">{formatAmount("Rs", preview.subtotal)}</span>
-              </div>
-              <div className="col-span-6 md:col-span-3">
-                <span className="block edit-discription">Discount</span>
-                <span className="block price">{formatAmount("Rs", preview.discount)}</span>
-              </div>
-              <div className="col-span-6 md:col-span-3">
-                <span className="block edit-discription">Tax</span>
-                <span className="block price">{formatAmount("Rs", preview.tax)}</span>
-              </div>
-              <div className="col-span-6 md:col-span-3">
-                <span className="block edit-discription">Grand Total</span>
-                <span className="block price">{formatAmount("Rs", preview.grandTotal)}</span>
-              </div>
+          <div className="purchase-form-totals">
+            <div>
+              <span>Subtotal</span>
+              <strong>{formatAmount("Rs", preview.subtotal)}</strong>
             </div>
-            <p className="textcklr small mt-2 mb-0">Client preview — server recalculates on save.</p>
+            <div>
+              <span>Discount</span>
+              <strong>{formatAmount("Rs", preview.discount)}</strong>
+            </div>
+            <div>
+              <span>Tax</span>
+              <strong>{formatAmount("Rs", preview.tax)}</strong>
+            </div>
+            <div className="is-grand">
+              <span>Grand total</span>
+              <strong>{formatAmount("Rs", preview.grandTotal)}</strong>
+            </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="purchase-form-actions">
             <button type="submit" className="btn input-clr1 save-changes py-2 px-4">
               Save Draft
             </button>
@@ -322,6 +265,7 @@ function PurchaseLines({
   lines,
   products,
   preview,
+  filledCount,
   updateLine,
   onProductChange,
   setLines,
@@ -329,12 +273,37 @@ function PurchaseLines({
   const { values } = useFormikContext();
 
   return (
-    <div className="flex flex-col gap-3 mb-3">
-      {lines.map((line, index) => (
-        <div key={line.key} className="invoice-row datalist py-3 px-2 m-0">
-          <div className="grid grid-cols-12 items-end gap-2">
-            <div className="col-span-12 md:col-span-3">
-              <label className="form-label input-clr">Product</label>
+    <section className="invoice-lines-card purchase-lines-card">
+      <div className="invoice-lines-head">
+        <div>
+          <h2 className="invoice-lines-title">Line items</h2>
+          <p className="invoice-lines-hint">Enter qty and total — piece cost fills in automatically.</p>
+        </div>
+        <span className="invoice-lines-count">
+          {filledCount} {filledCount === 1 ? "item" : "items"}
+        </span>
+      </div>
+
+      <div className="purchase-line-row is-head" aria-hidden="true">
+        <span>Product</span>
+        <span>Qty</span>
+        <span>Total</span>
+        <span>Cost</span>
+        <span>Disc.</span>
+        <span>Tax</span>
+        <span>Line</span>
+        <span />
+      </div>
+
+      <div className="invoice-lines-list">
+        {lines.map((line, index) => {
+          const hasCost = line.unitCost !== "" && Number.isFinite(Number(line.unitCost));
+          return (
+            <div
+              key={line.key}
+              className={`purchase-line-row${line.productId ? " is-filled" : ""}`}
+            >
+              <label className="invoice-label">Product</label>
               <select
                 className="form-select input-settings"
                 value={line.productId}
@@ -348,84 +317,107 @@ function PurchaseLines({
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="col-span-6 md:col-span-1">
-              <label className="form-label input-clr">Variant</label>
-              <input
-                type="number"
-                className="form-control input-settings"
-                value={line.variantId}
-                onChange={(e) => updateLine(line.key, { variantId: e.target.value })}
-                placeholder="—"
-              />
-            </div>
-            <div className="col-span-6 md:col-span-1">
-              <label className="form-label input-clr">Qty</label>
+
+              <label className="invoice-label">Qty</label>
               <input
                 type="number"
                 min="0"
                 step="any"
+                inputMode="decimal"
                 className="form-control input-settings"
+                placeholder="0"
                 value={line.quantity}
-                onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
+                onChange={(e) => updateLine(line.key, "quantity", e.target.value)}
               />
-            </div>
-            <div className="col-span-6 md:col-span-2">
-              <label className="form-label input-clr">Unit Cost</label>
+
+              <label className="invoice-label">Total</label>
               <input
                 type="number"
                 min="0"
                 step="0.01"
-                className="form-control input-settings"
+                inputMode="decimal"
+                className="form-control input-settings purchase-line-total-input"
+                placeholder="0"
+                value={line.lineAmount}
+                onChange={(e) => updateLine(line.key, "lineAmount", e.target.value)}
+              />
+
+              <label className="invoice-label">Cost</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                className={`form-control input-settings purchase-line-cost${
+                  line.costSource === "total" ? " is-auto" : ""
+                }`}
+                placeholder="—"
                 value={line.unitCost}
-                onChange={(e) => updateLine(line.key, { unitCost: e.target.value })}
+                onChange={(e) => updateLine(line.key, "unitCost", e.target.value)}
+                aria-label="Piece cost"
               />
-            </div>
-            <div className="col-span-6 md:col-span-1">
-              <label className="form-label input-clr">Disc.</label>
+
+              <label className="invoice-label">Disc.</label>
               <input
                 type="number"
                 min="0"
                 step="0.01"
+                inputMode="decimal"
                 className="form-control input-settings"
                 value={line.discount}
-                onChange={(e) => updateLine(line.key, { discount: e.target.value })}
+                onChange={(e) => updateLine(line.key, "discount", e.target.value)}
               />
-            </div>
-            <div className="col-span-6 md:col-span-1">
-              <label className="form-label input-clr">Tax</label>
+
+              <label className="invoice-label">Tax</label>
               <input
                 type="number"
                 min="0"
                 step="0.01"
+                inputMode="decimal"
                 className="form-control input-settings"
                 value={line.tax}
-                onChange={(e) => updateLine(line.key, { tax: e.target.value })}
+                onChange={(e) => updateLine(line.key, "tax", e.target.value)}
               />
-            </div>
-            <div className="col-span-6 md:col-span-2">
-              <label className="form-label input-clr">Line total</label>
-              <div className="price py-2">{formatAmount("Rs", preview.lineTotals[index])}</div>
-            </div>
-            <div className="col-span-6 md:col-span-1 flex justify-end">
+
+              <label className="invoice-label">Line</label>
+              <div className={`purchase-line-net${hasCost ? "" : " is-empty"}`}>
+                {hasCost ? formatAmount("Rs", preview.lineTotals[index]) : "—"}
+              </div>
+
               <button
                 type="button"
-                className="btn cancel py-1 px-2"
+                className="invoice-line-remove"
                 disabled={lines.length <= 1}
                 onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
                 aria-label="Remove line"
               >
                 <FontAwesomeIcon icon={faTrash} />
               </button>
+
+              {line.productId ? (
+                <div className="purchase-line-hint">
+                  <PurchaseRateHint
+                    productId={line.productId}
+                    supplierId={values.supplierId}
+                    onUseRate={(unitCost) => updateLine(line.key, "unitCost", unitCost)}
+                  />
+                </div>
+              ) : null}
             </div>
-          </div>
-          <PurchaseRateHint
-            productId={line.productId}
-            supplierId={values.supplierId}
-            onUseRate={(unitCost) => updateLine(line.key, { unitCost })}
-          />
-        </div>
-      ))}
-    </div>
+          );
+        })}
+      </div>
+
+      <div className="invoice-lines-add">
+        <button
+          type="button"
+          className="invoice-add-line"
+          onClick={() => setLines((prev) => [...prev, emptyPurchaseLine()])}
+        >
+          <FontAwesomeIcon icon={faPlus} />
+          Add line
+        </button>
+      </div>
+    </section>
   );
 }

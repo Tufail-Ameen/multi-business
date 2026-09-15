@@ -1,12 +1,11 @@
-import { faAngleLeft } from "@fortawesome/free-solid-svg-icons";
+import { faAngleLeft, faCheck, faFileInvoice } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 import { Can } from "../auth/guards";
 import EmptyState from "../components/ui/EmptyState";
-import StatusBadge from "../components/ui/StatusBadge";
 import { PERMISSIONS } from "../lib/permissions";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
 import {
@@ -14,7 +13,36 @@ import {
   useGetOrderQuery,
   useUpdateOrderMutation,
 } from "../services/invoiceApi";
-import { formatAmount } from "../utils/invoice";
+import { formatAmount, formatInvoiceDate } from "../utils/invoice";
+
+function statusLabel(status) {
+  const key = String(status || "").trim().toLowerCase();
+  if (key === "confirmed") return "Confirmed";
+  if (key === "converted") return "Converted";
+  if (key === "cancelled") return "Cancelled";
+  if (key === "placed") return "Placed";
+  return key ? key.charAt(0).toUpperCase() + key.slice(1) : "Draft";
+}
+
+function initials(name) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "C";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function phoneHref(value) {
+  const digits = String(value || "").replace(/[^\d+]/g, "");
+  return digits.length >= 7 ? `tel:${digits}` : null;
+}
+
+function money(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -57,7 +85,7 @@ export default function OrderDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="page-wrap">
+      <div className="client-profile">
         <p className="textcklr">Loading…</p>
       </div>
     );
@@ -72,116 +100,198 @@ export default function OrderDetailPage() {
   const status = String(order.status || "").toLowerCase();
   const canAct = status === "placed" || status === "confirmed";
   const snap = order.clientSnapshot || {};
+  const clientName = snap.name || order.clientName || "Walk-in";
+  const clientPhone = snap.phone || order.clientPhone || "";
+  const clientArea = order.clientArea || snap.area || "";
+  const callHref = phoneHref(clientPhone);
+  const items = order.items || [];
+  const currency = order.currency || "Rs";
+  const units = items.reduce((sum, item) => sum + money(item.quantity), 0);
+  const sourceLabel = order.source === "store" ? "Store order" : "Staff order";
+  const place = [clientArea, order.rateListNumber, order.placedAt ? formatInvoiceDate(order.placedAt) : ""]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <div className="page-wrap invoice-detail">
-      <button type="button" className="back-link" onClick={() => navigate("/orders")}>
-        <FontAwesomeIcon className="icon me-2" icon={faAngleLeft} size="2xs" />
-        Go back
-      </button>
-
-      <div className="detail-toolbar">
-        <div className="flex items-center gap-3">
-          <span className="edit-discription mb-0">Status</span>
-          <StatusBadge status={order.status} />
-        </div>
-        <div className="detail-actions">
-          {status === "placed" && (
-            <Can permission={PERMISSIONS.ORDERS_UPDATE}>
-              <button
-                type="button"
-                className="btn edit py-2 px-3"
-                disabled={updateState.isLoading}
-                onClick={() => setStatus("confirmed")}
-              >
-                Confirm
-              </button>
-            </Can>
-          )}
-          {canAct && (
-            <Can permission={PERMISSIONS.ORDERS_CONVERT}>
-              <button
-                type="button"
-                className="btn save-changes py-2 px-3"
-                disabled={convertState.isLoading}
-                onClick={onConvert}
-              >
-                Convert to invoice
-              </button>
-            </Can>
-          )}
-          {canAct && (
-            <Can permission={PERMISSIONS.ORDERS_UPDATE}>
-              <button
-                type="button"
-                className="btn cancel py-2 px-3"
-                disabled={updateState.isLoading}
-                onClick={() => setStatus("cancelled")}
-              >
-                Cancel
-              </button>
-            </Can>
-          )}
-        </div>
-      </div>
-
-      <div className="detail-card">
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 md:col-span-6">
-            <p className="edit-id">#{order.number}</p>
-            <p className="edit-discription mb-0">
-              {order.source === "store" ? "Store order" : "Staff order"}
-              {order.rateListNumber ? ` · ${order.rateListNumber}` : ""}
-            </p>
-            {order.notes ? <p className="textcklr mt-2 mb-0">{order.notes}</p> : null}
-          </div>
-          <div className="col-span-12 md:col-span-6 md:text-end">
-            <span className="edit-discription block">Client</span>
-            <span className="date-bill-email block">{order.clientName}</span>
-            <span className="textcklr block">{snap.phone || order.clientPhone || "—"}</span>
+    <div className="client-profile">
+      <article className="client-record order-record">
+        <div className="client-record-toolbar no-print">
+          <button type="button" className="client-record-back" onClick={() => navigate("/orders")}>
+            <FontAwesomeIcon icon={faAngleLeft} size="2xs" />
+            Orders
+          </button>
+          <div className="client-record-actions">
+            {status === "placed" && (
+              <Can permission={PERMISSIONS.ORDERS_UPDATE}>
+                <button
+                  type="button"
+                  className="btn edit py-2 px-3"
+                  disabled={updateState.isLoading}
+                  onClick={() => setStatus("confirmed")}
+                >
+                  <FontAwesomeIcon icon={faCheck} />
+                  Confirm
+                </button>
+              </Can>
+            )}
+            {canAct && (
+              <Can permission={PERMISSIONS.ORDERS_CONVERT}>
+                <button
+                  type="button"
+                  className="btn save-changes py-2 px-3"
+                  disabled={convertState.isLoading}
+                  onClick={onConvert}
+                >
+                  <FontAwesomeIcon icon={faFileInvoice} />
+                  Convert to invoice
+                </button>
+              </Can>
+            )}
             {order.convertedInvoiceId ? (
               <button
                 type="button"
-                className="btn edit mt-3 py-2 px-3"
+                className="btn save-changes py-2 px-3"
                 onClick={() => navigate(`/invoices/${order.convertedInvoiceId}`)}
               >
+                <FontAwesomeIcon icon={faFileInvoice} />
                 Open invoice
               </button>
             ) : null}
+            {canAct && (
+              <Can permission={PERMISSIONS.ORDERS_UPDATE}>
+                <button
+                  type="button"
+                  className="btn cancel py-2 px-3"
+                  disabled={updateState.isLoading}
+                  onClick={() => setStatus("cancelled")}
+                >
+                  Cancel
+                </button>
+              </Can>
+            )}
           </div>
         </div>
 
-        <div className="table-setting my-4 overflow-x-auto">
-          <table className="table m-0">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Item</th>
-                <th>Qty.</th>
-                <th>Rate</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(order.items || []).map((item, index) => (
-                <tr key={`${item.productId}-${item.name}-${index}`}>
-                  <td>{index + 1}</td>
-                  <td>{item.name}</td>
-                  <td>{item.quantity}</td>
-                  <td>{formatAmount(order.currency || "Rs", item.unitPrice)}</td>
-                  <td>{formatAmount(order.currency || "Rs", item.lineTotal)}</td>
-                </tr>
-              ))}
-              <tr className="total">
-                <th className="py-4 px-2" colSpan={4}>
-                  Amount
-                </th>
-                <th className="total-price">{formatAmount(order.currency || "Rs", order.total)}</th>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <header className="client-record-letterhead">
+          <div className="client-record-brand">
+            <span className="client-record-mark" aria-hidden="true">
+              {initials(clientName)}
+            </span>
+            <div className="min-w-0">
+              {order.clientId != null ? (
+                <h1>
+                  <Link to={`/clients/${order.clientId}`} className="order-record-client">
+                    {clientName}
+                  </Link>
+                </h1>
+              ) : (
+                <h1>{clientName}</h1>
+              )}
+              {place ? <p>{place}</p> : null}
+              {callHref ? (
+                <a href={callHref}>{clientPhone}</a>
+              ) : clientPhone ? (
+                <p>{clientPhone}</p>
+              ) : null}
+            </div>
+          </div>
+          <div className="client-record-doctype">
+            <span>{sourceLabel}</span>
+            <strong>#{order.number}</strong>
+          </div>
+        </header>
+
+        <section className="client-record-stats" aria-label="Order summary">
+          <div>
+            <span>Status</span>
+            <strong>{statusLabel(status)}</strong>
+          </div>
+          <div>
+            <span>Quantity</span>
+            <strong>{units || "—"}</strong>
+          </div>
+          <div>
+            <span>Amount</span>
+            <strong>{formatAmount(currency, order.total)}</strong>
+          </div>
+        </section>
+
+        <section className="order-record-items">
+          <div className="invoice-doc-items-head">
+            <h2>Items</h2>
+            <span className="invoice-doc-count">
+              {items.length} {items.length === 1 ? "item" : "items"}
+            </span>
+          </div>
+
+          {order.notes ? <p className="order-record-notes">{order.notes}</p> : null}
+
+          {!items.length ? (
+            <EmptyState
+              className="!border-0 !bg-transparent !shadow-none"
+              title="No line items"
+              message="This order has no products yet."
+            />
+          ) : (
+            <div className="invoice-doc-table-wrap">
+              <table className="invoice-doc-table purchase-doc-table">
+                <thead>
+                  <tr>
+                    <th className="is-index">#</th>
+                    <th>Item</th>
+                    <th className="is-num">Qty</th>
+                    <th className="is-num">Rate</th>
+                    <th className="is-num">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => (
+                    <tr key={`${item.productId}-${item.name}-${index}`}>
+                      <td className="is-index">{index + 1}</td>
+                      <td>
+                        <span className="invoice-doc-item-name">{item.name}</span>
+                        {item.sku ? (
+                          <span className="invoice-doc-muted">{item.sku}</span>
+                        ) : (
+                          <span className="invoice-doc-muted">
+                            {item.quantity} × {formatAmount(currency, item.unitPrice)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="is-num">{item.quantity}</td>
+                      <td className="is-num">{formatAmount(currency, item.unitPrice)}</td>
+                      <td className="is-num is-total">{formatAmount(currency, item.lineTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {items.length ? (
+            <div className="invoice-doc-totals">
+              <div className="invoice-doc-totals-card">
+                {money(order.taxTotal) > 0 ? (
+                  <>
+                    <div className="invoice-doc-totals-row">
+                      <span>Subtotal</span>
+                      <strong>{formatAmount(currency, order.subtotal)}</strong>
+                    </div>
+                    <div className="invoice-doc-totals-row">
+                      <span>Tax</span>
+                      <strong>{formatAmount(currency, order.taxTotal)}</strong>
+                    </div>
+                  </>
+                ) : null}
+                <div className="invoice-doc-totals-row is-grand">
+                  <span>Amount</span>
+                  <strong>{formatAmount(currency, order.total)}</strong>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      </article>
     </div>
   );
 }

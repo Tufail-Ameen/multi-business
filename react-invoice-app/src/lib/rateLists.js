@@ -617,13 +617,22 @@ export function clientOutreachMessage({
   const shop = String(clientName || "").trim();
   const brand = String(businessName || "").trim() || "Hamari shop";
   const greeting = shop ? `Assalamualaikum ${waBold(shop)},` : "Assalamualaikum,";
-  const lines = [greeting, "", `${waBold(brand)} ki latest rates`];
+  const lines = [
+    greeting,
+    "",
+    `${waBold(brand)} se order booker hoon.`,
+    "Aaj ka order lene aya hoon — rates yeh hain:",
+  ];
   const catalog = formatCatalogMessageLines(products);
   if (catalog.length) {
     lines.push("", ...catalog);
   }
+  lines.push(
+    "",
+    "Jo maal chahiye uski quantity reply mein bhej dein, order book kar leta hoon."
+  );
   if (shareUrl) {
-    lines.push("", `Order: ${shareUrl}`);
+    lines.push("", `Order link: ${shareUrl}`);
   }
   return lines.join("\n");
 }

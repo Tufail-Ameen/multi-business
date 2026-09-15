@@ -183,9 +183,13 @@ describe("clientOutreachMessage", () => {
       products: [{ name: "Archi Cap", unit: "pcs", salePrice: 45 }],
     });
     expect(message).toContain("Assalamualaikum *Adnan Face Wash Hub*,");
-    expect(message).toContain("*Archi* ki latest rates");
+    expect(message).toContain("*Archi* se order booker hoon.");
+    expect(message).toContain("Aaj ka order lene aya hoon — rates yeh hain:");
     expect(message).toContain("1. Archi Cap — *Rs\u00A045*");
-    expect(message).toContain("Order: https://example.com/store/ab");
+    expect(message).toContain(
+      "Jo maal chahiye uski quantity reply mein bhej dein, order book kar leta hoon."
+    );
+    expect(message).toContain("Order link: https://example.com/store/ab");
   });
 
   test("includes every assigned item, not a 20-item cap", () => {

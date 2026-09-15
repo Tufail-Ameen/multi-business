@@ -13,6 +13,7 @@
     "seed:platform-admin": "node --env-file=.env seed-platform-admin.js",
     "seed:tufail-catalog": "node --env-file=.env import-business-catalog.js --file=catalog-tufail-traders.json --business-id=22af2885-7a6e-4ad1-84c4-e0ddeba9cb8c",
     "seed:tufail-clients": "node --env-file=.env import-business-clients.js --file=clients-tufail-traders.json --business-id=22af2885-7a6e-4ad1-84c4-e0ddeba9cb8c",
+    "seed:tufail-anarkali-mazang": "node --env-file=.env import-business-clients.js --file=clients-tufail-anarkali-mazang.json --business-id=f30f5411-709e-4fa4-aabe-1911b946e5d7",
     "test": "npm run test:unit && npm run test:integration:memory",
     "test:unit": "node test/permissions.test.js && node test/stockService.test.js && node test/validation.test.js && node test/purchasePriceService.test.js && node test/product-image.test.js",
     "test:integration": "node --env-file=.env test/auth.test.js && node --env-file=.env test/catalog.test.js && node --env-file=.env test/purchases.test.js && node --env-file=.env test/rate-lists.test.js && node --env-file=.env test/invoices.test.js && node --env-file=.env test/orders.test.js",

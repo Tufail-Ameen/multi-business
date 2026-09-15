@@ -101,25 +101,27 @@ async function importClients() {
       }
 
       try {
+        const area = raw.area == null ? "" : String(raw.area);
         const existing = await db.collection("clients").findOne({
           businessId,
           name: { $regex: `^${escapeRegex(name)}$`, $options: "i" },
+          area: { $regex: `^${escapeRegex(area)}$`, $options: "i" },
         });
-        const area = raw.area == null ? "" : String(raw.area);
         if (existing) {
+          const phone = raw.phone == null ? "" : String(raw.phone);
           if (!dryRun) {
             await db.collection("clients").updateOne(
               { businessId, id: existing.id },
               {
                 $set: {
-                  area,
+                  phone,
                   updatedAt: new Date(),
                 },
               }
             );
           }
           skippedCount += 1;
-          skipped.push(`client name exists, area updated: ${name}`);
+          skipped.push(`client already exists in area, phone updated: ${name} (${area})`);
           continue;
         }
 

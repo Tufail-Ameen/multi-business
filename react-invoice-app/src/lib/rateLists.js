@@ -207,12 +207,196 @@ export function whatsappDigits(phone) {
   return digits;
 }
 
+const CHAT_NBSP = "\u00A0";
+
+function waBold(text) {
+  const safe = String(text || "").replace(/\*/g, "•").trim();
+  return safe ? `*${safe}*` : "";
+}
+
+function productChatName(product) {
+  return String(product?.name || product?.productName || "").trim();
+}
+
+function catalogUnitLabel(unit) {
+  const value = String(unit || "pcs").trim();
+  if (!value || value.toLowerCase() === "pcs") return "";
+  return value;
+}
+
+export function formatChatPrice(amount) {
+  return formatPrice(amount).replace(/ /g, CHAT_NBSP);
+}
+
+export function catalogCategoryKey(product) {
+  return String(product?.category || "").trim();
+}
+
+export function groupCatalogByCategory(products) {
+  const list = (products || []).filter((product) => productChatName(product));
+  const grouped = new Map();
+  for (const product of list) {
+    const category = catalogCategoryKey(product);
+    const id = category ? category.toLowerCase() : "__none__";
+    const rank = Number(product?.categorySortOrder);
+    if (!grouped.has(id)) {
+      grouped.set(id, {
+        category: category || null,
+        sortOrder: Number.isFinite(rank) ? rank : null,
+        items: [],
+      });
+    } else if (Number.isFinite(rank)) {
+      const group = grouped.get(id);
+      if (group.sortOrder == null || rank < group.sortOrder) {
+        group.sortOrder = rank;
+      }
+    }
+    grouped.get(id).items.push(product);
+  }
+
+  const named = [...grouped.values()]
+    .filter((group) => group.category)
+    .sort((a, b) => {
+      if (a.sortOrder != null && b.sortOrder != null && a.sortOrder !== b.sortOrder) {
+        return a.sortOrder - b.sortOrder;
+      }
+      if (a.sortOrder != null && b.sortOrder == null) return -1;
+      if (a.sortOrder == null && b.sortOrder != null) return 1;
+      return a.category.localeCompare(b.category, undefined, { sensitivity: "base" });
+    });
+  const none = grouped.get("__none__");
+  if (none?.items.length) {
+    named.push(none);
+  }
+  return named;
+}
+
+export function applyCategorySort(products, categories) {
+  if (!categories?.length) return products || [];
+  const byId = new Map();
+  const byName = new Map();
+  for (const [index, category] of categories.entries()) {
+    const rank = Number.isFinite(Number(category?.sortOrder))
+      ? Number(category.sortOrder)
+      : index;
+    if (category?.id != null) byId.set(Number(category.id), rank);
+    const name = String(category?.name || "").trim().toLowerCase();
+    if (name) byName.set(name, rank);
+  }
+  return (products || []).map((product) => {
+    const fromId = byId.get(Number(product?.categoryId));
+    const fromName = byName.get(catalogCategoryKey(product).toLowerCase());
+    const rank = fromId ?? fromName;
+    if (rank == null) return product;
+    return { ...product, categorySortOrder: rank };
+  });
+}
+
+export function sortProductsByCategory(products, categories) {
+  const stamped = applyCategorySort(products, categories);
+  return [...stamped].sort(compareByCategoryOrder);
+}
+
+export function applyNamedCategoryOrder(products, orderedNames) {
+  const names = (orderedNames || []).map((name) => String(name || "").trim()).filter(Boolean);
+  if (!names.length) return products || [];
+  const rank = new Map(names.map((name, index) => [name.toLowerCase(), index]));
+  return (products || []).map((product) => {
+    const key = catalogCategoryKey(product).toLowerCase();
+    if (!rank.has(key)) return product;
+    return { ...product, categorySortOrder: rank.get(key) };
+  });
+}
+
+export function moveItem(items, fromIndex, toIndex) {
+  const list = [...(items || [])];
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= list.length ||
+    toIndex >= list.length
+  ) {
+    return list;
+  }
+  const next = [...list];
+  const [row] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, row);
+  return next;
+}
+
+export function swapAdjacent(items, index, delta) {
+  return moveItem(items, index, index + delta);
+}
+
+export function categoryIdsAfterVisibleMove(allCategories, visibleNames, fromIndex, toIndex) {
+  const nextVisible = moveItem(visibleNames, fromIndex, toIndex);
+  const byName = new Map(
+    (allCategories || []).map((category) => [
+      String(category?.name || "").trim().toLowerCase(),
+      category,
+    ])
+  );
+  const visibleSet = new Set(
+    (visibleNames || []).map((name) => String(name || "").trim().toLowerCase()).filter(Boolean)
+  );
+  const next = [...(allCategories || [])];
+  const slots = [];
+  next.forEach((category, slot) => {
+    if (visibleSet.has(String(category?.name || "").trim().toLowerCase())) {
+      slots.push(slot);
+    }
+  });
+  nextVisible.forEach((name, i) => {
+    const category = byName.get(String(name || "").trim().toLowerCase());
+    if (category && slots[i] != null) next[slots[i]] = category;
+  });
+  return next.map((category) => category.id).filter((id) => id != null);
+}
+
+export function categoryIdsAfterVisibleSwap(allCategories, visibleNames, index, delta) {
+  return categoryIdsAfterVisibleMove(allCategories, visibleNames, index, index + delta);
+}
+
+export function messageCategoryNames(products) {
+  return groupCatalogByCategory(products)
+    .map((group) => group.category)
+    .filter(Boolean);
+}
+
 export function formatCatalogLine(product) {
-  const name = product?.name || product?.productName || "";
-  const unit = product?.unit || "pcs";
+  const name = productChatName(product);
+  if (!name) return "";
+  const unit = catalogUnitLabel(product?.unit);
   const price =
     toMoneyNumber(product?.customPrice ?? product?.price) ?? productDefaultPrice(product);
-  return `${name} — ${unit} — ${formatPrice(price)}`;
+  const unitPart = unit ? ` (${unit})` : "";
+  return `${name}${unitPart} — ${waBold(formatChatPrice(price))}`;
+}
+
+export function formatCatalogMessageLines(products) {
+  const groups = groupCatalogByCategory(products);
+  if (!groups.length) return [];
+
+  const useHeaders = groups.some((group) => group.category && group.items.length);
+  if (!useHeaders) {
+    return groups
+      .flatMap((group) => group.items)
+      .map((product, index) => `${index + 1}. ${formatCatalogLine(product)}`)
+      .filter((line) => line.length > 3);
+  }
+
+  const lines = [];
+  for (const group of groups) {
+    const heading = group.category || "Other";
+    if (lines.length) lines.push("");
+    lines.push(waBold(heading));
+    for (const product of group.items) {
+      const line = formatCatalogLine(product);
+      if (line) lines.push(`• ${line}`);
+    }
+  }
+  return lines;
 }
 
 export function rateListItemsForMessage(items) {
@@ -224,6 +408,11 @@ export function rateListItemsForMessage(items) {
       unit: item.unit || "pcs",
       customPrice: item.customPrice ?? item.price,
       salePrice: item.defaultPrice ?? item.salePrice,
+      category: item.category || null,
+      categoryId: item.categoryId ?? null,
+      categorySortOrder: Number.isFinite(Number(item.categorySortOrder))
+        ? Number(item.categorySortOrder)
+        : null,
       soldQty: Number(item.soldQty) || 0,
       lastBoughtAt: item.lastBoughtAt || null,
     }))
@@ -274,6 +463,15 @@ function compareByName(a, b) {
   const byName = productSortName(a).localeCompare(productSortName(b));
   if (byName) return byName;
   return productSortKey(a).localeCompare(productSortKey(b));
+}
+
+function compareByCategoryOrder(a, b) {
+  const ao = Number(a?.categorySortOrder);
+  const bo = Number(b?.categorySortOrder);
+  const aRank = Number.isFinite(ao) ? ao : Number.POSITIVE_INFINITY;
+  const bRank = Number.isFinite(bo) ? bo : Number.POSITIVE_INFINITY;
+  if (aRank !== bRank) return aRank - bRank;
+  return compareByName(a, b);
 }
 
 function soldQtyOf(item, stats) {
@@ -418,9 +616,9 @@ export function clientOutreachMessage({
 } = {}) {
   const shop = String(clientName || "").trim();
   const brand = String(businessName || "").trim() || "Hamari shop";
-  const greeting = shop ? `Assalamualaikum ${shop},` : "Assalamualaikum,";
-  const lines = [greeting, "", `${brand} ki latest rates:`];
-  const catalog = (products || []).map(formatCatalogLine).filter(Boolean);
+  const greeting = shop ? `Assalamualaikum ${waBold(shop)},` : "Assalamualaikum,";
+  const lines = [greeting, "", `${waBold(brand)} ki latest rates`];
+  const catalog = formatCatalogMessageLines(products);
   if (catalog.length) {
     lines.push("", ...catalog);
   }
@@ -431,7 +629,7 @@ export function clientOutreachMessage({
 }
 
 export function catalogShareMessage(products) {
-  const lines = (products || []).map(formatCatalogLine);
+  const lines = formatCatalogMessageLines(products);
   return ["Rate list", "", ...lines].join("\n");
 }
 

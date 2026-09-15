@@ -6,55 +6,41 @@ import { toast } from "react-toastify";
 import { useAuth } from "../../auth/AuthContext";
 import {
   buildWhatsAppQueue,
+  clientOutreachMessage,
   copyText,
-  formatPrice,
   openWhatsAppWindow,
-  productDefaultPrice,
   rateListItemsForMessage,
-  splitCatalogColumns,
-  toMoneyNumber,
 } from "../../lib/rateLists";
 import { getErrorMessage } from "../../lib/rtkBaseQuery";
+import { useCategorySwap } from "../../hooks/useCategorySwap";
 import { useBulkRateListOutreachMutation } from "../../services/invoiceApi";
+import CategorySwapList from "./CategorySwapList";
 import WhatsAppHandoff from "./WhatsAppHandoff";
+import WhatsAppMessagePreview from "./WhatsAppMessagePreview";
 
 const SKIP_LABEL = {
-  no_list: "No assigned products",
+  no_list: "No products to send",
   no_phone: "No phone number",
   no_items: "Empty list",
   not_found: "Shop not found",
 };
 
-function itemRate(product) {
-  return formatPrice(toMoneyNumber(product?.customPrice) ?? productDefaultPrice(product));
-}
-
-function RateColumn({ products, startIndex = 1 }) {
-  return (
-    <div className="send-rate-col">
-      {products.map((product, index) => (
-        <div key={`${product.name}-${startIndex + index}`} className="send-rate-row">
-          <span className="send-rate-index">{startIndex + index}</span>
-          <span className="send-rate-name" title={product.name}>
-            {product.name}
-          </span>
-          <span className="send-rate-unit">{product.unit || "pcs"}</span>
-          <span className="send-rate-price">{itemRate(product)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function GroupPreview({ group }) {
+function GroupPreview({ group, businessName, stamp = (rows) => rows }) {
   const products = useMemo(
-    () => rateListItemsForMessage(group.items),
-    [group.items]
+    () => stamp(rateListItemsForMessage(group.items)),
+    [group.items, stamp]
   );
-  const { left, right } =
-    products.length > 1 ? splitCatalogColumns(products) : { left: products, right: [] };
-  const oneShop = group.recipients.length === 1;
   const sampleName = group.recipients[0]?.name || "shop";
+  const catalogFallback = group.source === "catalog";
+  const message = useMemo(
+    () =>
+      clientOutreachMessage({
+        clientName: sampleName,
+        businessName,
+        products,
+      }),
+    [sampleName, businessName, products]
+  );
 
   return (
     <div className="send-rate-group">
@@ -75,18 +61,14 @@ function GroupPreview({ group }) {
         ))}
       </div>
 
+      {catalogFallback ? (
+        <p className="textcklr small mb-2">
+          No assigned products — sending the full catalog.
+        </p>
+      ) : null}
+
       {products.length ? (
-        <div className="send-rate-sheet">
-          <p className="send-rate-greeting">
-            Assalamualaikum {oneShop ? sampleName : "[shop name]"},
-          </p>
-          <div className={`send-rate-grid${right.length ? "" : " send-rate-grid-single"}`}>
-            <RateColumn products={left} />
-            {right.length ? (
-              <RateColumn products={right} startIndex={left.length + 1} />
-            ) : null}
-          </div>
-        </div>
+        <WhatsAppMessagePreview message={message} />
       ) : (
         <p className="mb-0 text-red-600 small">This list has no products yet.</p>
       )}
@@ -124,15 +106,23 @@ export default function BulkSendRateListModal({ clientIds, onClose }) {
 
   const groups = useMemo(() => data?.groups || [], [data]);
   const skipped = data?.skipped || [];
+  const seedProducts = useMemo(
+    () => groups.flatMap((group) => rateListItemsForMessage(group.items)),
+    [groups]
+  );
+  const { stamp, sectionNames, moveSectionTo, moving } = useCategorySwap(
+    seedProducts,
+    idsKey
+  );
   const jobs = useMemo(
     () =>
       groups.flatMap((group) =>
         buildWhatsAppQueue(group.recipients, {
           businessName,
-          products: rateListItemsForMessage(group.items),
+          products: stamp(rateListItemsForMessage(group.items)),
         })
       ),
-    [groups, businessName]
+    [groups, businessName, stamp]
   );
   const current = handoff ? handoff.jobs[handoff.index] : null;
   const nextJob = handoff ? handoff.jobs[handoff.index + 1] : null;
@@ -249,8 +239,18 @@ export default function BulkSendRateListModal({ clientIds, onClose }) {
                 />
               ) : (
                 <>
+                  <CategorySwapList
+                    names={sectionNames}
+                    onMoveTo={moveSectionTo}
+                    disabled={moving}
+                  />
                   {groups.map((group) => (
-                    <GroupPreview key={group.fingerprint} group={group} />
+                    <GroupPreview
+                      key={group.fingerprint}
+                      group={group}
+                      businessName={businessName}
+                      stamp={stamp}
+                    />
                   ))}
                   {skipped.length ? (
                     <p className="textcklr small mb-0">

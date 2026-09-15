@@ -204,6 +204,127 @@ test("create rate list snapshots product names and default prices", async () => 
   assert.equal(still.customPrice, 80);
 });
 
+test("rate list items include the live product category", async () => {
+  const cat = await request("/categories", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: "Hair Color" },
+  });
+  assert.equal(cat.status, 201, JSON.stringify(cat.payload));
+
+  const shop = await createClient(ownerA, businessAId, {
+    name: "Color Shop",
+    email: "color-shop@example.com",
+    phone: "03001111888",
+  });
+  const dye = await createProduct(ownerA, businessAId, {
+    name: "Sabalon Apply Color",
+    sku: "SAB-COLOR",
+    salePrice: 1700,
+    categoryId: cat.payload.id,
+  });
+
+  const created = await request("/rate-lists", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { clientId: shop.id, items: [{ productId: dye.id }] },
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.payload));
+  assert.equal(created.payload.items[0].category, "Hair Color");
+  assert.equal(created.payload.items[0].categoryId, cat.payload.id);
+  assert.equal(created.payload.items[0].categorySortOrder, cat.payload.sortOrder);
+
+  const got = await request(`/rate-lists/${created.payload.id}`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(got.status, 200);
+  assert.equal(got.payload.items[0].category, "Hair Color");
+  assert.equal(got.payload.items[0].categoryId, cat.payload.id);
+  assert.equal(got.payload.items[0].categorySortOrder, cat.payload.sortOrder);
+
+  const outreach = await request("/rate-lists/bulk-outreach", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { clientIds: [shop.id] },
+  });
+  assert.equal(outreach.status, 200, JSON.stringify(outreach.payload));
+  assert.equal(outreach.payload.groups[0].items[0].category, "Hair Color");
+});
+
+test("catalog rate list items follow saved category order", async () => {
+  const prefix = `RlOrd-${Date.now()}`;
+  const wax = await request("/categories", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: `${prefix} Wax` },
+  });
+  const color = await request("/categories", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: `${prefix} Color` },
+  });
+  const spray = await request("/categories", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: `${prefix} Spray` },
+  });
+  assert.equal(wax.status, 201, JSON.stringify(wax.payload));
+  assert.equal(color.status, 201, JSON.stringify(color.payload));
+  assert.equal(spray.status, 201, JSON.stringify(spray.payload));
+
+  await createProduct(ownerA, businessAId, {
+    name: `${prefix} Apple Color`,
+    sku: `${prefix}-APPLE`,
+    salePrice: 1700,
+    categoryId: color.payload.id,
+  });
+  await createProduct(ownerA, businessAId, {
+    name: `${prefix} Zebra Wax`,
+    sku: `${prefix}-ZEBRA`,
+    salePrice: 300,
+    categoryId: wax.payload.id,
+  });
+  await createProduct(ownerA, businessAId, {
+    name: `${prefix} Beta Spray`,
+    sku: `${prefix}-BETA`,
+    salePrice: 220,
+    categoryId: spray.payload.id,
+  });
+
+  const listed = await request("/categories?per_page=500", {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  const restIds = listed.payload.categories
+    .map((row) => row.id)
+    .filter((id) => ![wax.payload.id, color.payload.id, spray.payload.id].includes(id));
+  const reordered = await request("/categories/reorder", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { ids: [spray.payload.id, wax.payload.id, color.payload.id, ...restIds] },
+  });
+  assert.equal(reordered.status, 200, JSON.stringify(reordered.payload));
+
+  const shop = await createClient(ownerA, businessAId, {
+    name: `${prefix} Shop`,
+    email: `${prefix}@example.com`,
+    phone: "03001111999",
+  });
+  const outreach = await request("/rate-lists/bulk-outreach", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { clientIds: [shop.id] },
+  });
+  assert.equal(outreach.status, 200, JSON.stringify(outreach.payload));
+  const names = outreach.payload.groups[0].items
+    .filter((item) => String(item.productName).startsWith(prefix))
+    .map((item) => item.productName);
+  assert.deepEqual(names, [
+    `${prefix} Beta Spray`,
+    `${prefix} Zebra Wax`,
+    `${prefix} Apple Color`,
+  ]);
+});
+
 test("rate list items include how much this shop already bought", async () => {
   const shop = await createClient(ownerA, businessAId, {
     name: "Purchase Rank Shop",
@@ -509,7 +630,7 @@ test("send locks the list, public share works, resend keeps token unless rotated
   assert.equal(sendArchived.status, 409);
 });
 
-test("bulk outreach groups identical lists and skips shops with nothing to send", async () => {
+test("bulk outreach groups identical lists and uses the catalog when a shop has no assigned products", async () => {
   const product = await createProduct(ownerA, businessAId, {
     name: "Soap",
     sku: `SOAP-BULK-${Date.now()}`,
@@ -530,6 +651,10 @@ test("bulk outreach groups identical lists and skips shops with nothing to send"
   const noList = await createClient(ownerA, businessAId, {
     name: "No List",
     phone: "03001111004",
+  });
+  const noListB = await createClient(ownerA, businessAId, {
+    name: "No List B",
+    phone: "03001111005",
   });
   const noPhone = await createClient(ownerA, businessAId, {
     name: "No Phone",
@@ -561,17 +686,34 @@ test("bulk outreach groups identical lists and skips shops with nothing to send"
     method: "POST",
     headers: tenantHeaders(ownerA, businessAId),
     body: {
-      clientIds: [sameA.id, sameB.id, custom.id, noList.id, noPhone.id],
+      clientIds: [sameA.id, sameB.id, custom.id, noList.id, noListB.id, noPhone.id],
     },
   });
   assert.equal(result.status, 200, JSON.stringify(result.payload));
-  assert.equal(result.payload.ready, 3);
-  assert.equal(result.payload.groups.length, 2);
-  assert.equal(result.payload.groups[0].kind, "shared");
-  assert.equal(result.payload.groups[0].recipients.length, 2);
-  assert.equal(result.payload.groups[1].kind, "custom");
+  assert.equal(result.payload.ready, 5);
+  assert.equal(result.payload.groups.length, 3);
+  const assignedShared = result.payload.groups.find(
+    (group) => group.source === "assigned" && group.kind === "shared"
+  );
+  const assignedCustom = result.payload.groups.find(
+    (group) => group.source === "assigned" && group.kind === "custom"
+  );
+  const catalogGroup = result.payload.groups.find(
+    (group) => group.source === "catalog"
+  );
+  assert.equal(assignedShared.recipients.length, 2);
+  assert.equal(assignedCustom.recipients.length, 1);
+  assert.equal(catalogGroup.kind, "shared");
+  assert.equal(catalogGroup.recipients.length, 2);
+  assert.ok(catalogGroup.items.length >= 1);
+  const catalogSoap = catalogGroup.items.find((item) => item.productId === product.id);
+  assert.ok(catalogSoap);
+  assert.equal(catalogSoap.customPrice, 50);
+  assert.equal(catalogSoap.productName, "Soap");
+  const catalogIds = catalogGroup.recipients.map((row) => row.clientId).sort();
+  assert.deepEqual(catalogIds, [noList.id, noListB.id].sort());
   const reasons = result.payload.skipped.map((row) => row.reason).sort();
-  assert.deepEqual(reasons, ["no_list", "no_phone"]);
+  assert.deepEqual(reasons, ["no_phone"]);
 });
 
 test("expired public share returns 410; draft has no public access", async () => {

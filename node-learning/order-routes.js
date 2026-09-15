@@ -27,8 +27,9 @@ const {
 const {
   escapeRegex,
   parseListPagination,
-  paginateFind,
+  paginateArray,
 } = require("./pagination");
+const { sortCatalogItems } = require("./catalogSort");
 
 const ORDER_STATUSES = Object.freeze({
   PLACED: "placed",
@@ -494,11 +495,11 @@ async function loadCatalogStoreProducts(db, businessId, query = {}) {
     });
   }
   const paging = parseListPagination(query);
-  const { rows, pagination } = await paginateFind(
-    db.collection("products"),
-    filter,
-    { ...paging, sort: { name: 1 } }
-  );
+  const [all, categories] = await Promise.all([
+    db.collection("products").find(filter).toArray(),
+    db.collection("categories").find({ businessId }).toArray(),
+  ]);
+  const { rows, pagination } = paginateArray(sortCatalogItems(all, categories), paging);
   return { products: rows, pagination };
 }
 

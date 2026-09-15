@@ -159,6 +159,136 @@ test("category create/list/update and business uniqueness", async () => {
   assert.equal(other.status, 201);
 });
 
+test("category reorder controls list order", async () => {
+  const wax = await request("/categories", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: "Wax Sort" },
+  });
+  const color = await request("/categories", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: "Hair Color Sort" },
+  });
+  const spray = await request("/categories", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: "Hair Spray Sort" },
+  });
+  assert.equal(wax.status, 201, JSON.stringify(wax.payload));
+  assert.equal(color.status, 201, JSON.stringify(color.payload));
+  assert.equal(spray.status, 201, JSON.stringify(spray.payload));
+
+  const listed = await request("/categories?per_page=500", {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(listed.status, 200, JSON.stringify(listed.payload));
+  const restIds = listed.payload.categories
+    .map((row) => row.id)
+    .filter((id) => ![wax.payload.id, color.payload.id, spray.payload.id].includes(id));
+
+  const reordered = await request("/categories/reorder", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { ids: [spray.payload.id, wax.payload.id, color.payload.id, ...restIds] },
+  });
+  assert.equal(reordered.status, 200, JSON.stringify(reordered.payload));
+  const names = reordered.payload.categories.map((row) => row.name);
+  assert.ok(names.indexOf("Hair Spray Sort") < names.indexOf("Wax Sort"));
+  assert.ok(names.indexOf("Wax Sort") < names.indexOf("Hair Color Sort"));
+
+  const again = await request("/categories?per_page=500", {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  const againNames = again.payload.categories.map((row) => row.name);
+  assert.ok(againNames.indexOf("Hair Spray Sort") < againNames.indexOf("Wax Sort"));
+  assert.ok(againNames.indexOf("Wax Sort") < againNames.indexOf("Hair Color Sort"));
+});
+
+test("product list follows saved category order", async () => {
+  const prefix = `CatOrd-${Date.now()}`;
+  const wax = await request("/categories", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: `${prefix} Wax` },
+  });
+  const color = await request("/categories", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: `${prefix} Color` },
+  });
+  const spray = await request("/categories", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { name: `${prefix} Spray` },
+  });
+  assert.equal(wax.status, 201, JSON.stringify(wax.payload));
+  assert.equal(color.status, 201, JSON.stringify(color.payload));
+  assert.equal(spray.status, 201, JSON.stringify(spray.payload));
+
+  const apple = await request("/products", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      name: `${prefix} Apple Color`,
+      sku: `${prefix}-APPLE`,
+      categoryId: color.payload.id,
+      salePrice: 100,
+    },
+  });
+  const zebra = await request("/products", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      name: `${prefix} Zebra Wax`,
+      sku: `${prefix}-ZEBRA`,
+      categoryId: wax.payload.id,
+      salePrice: 100,
+    },
+  });
+  const beta = await request("/products", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: {
+      name: `${prefix} Beta Spray`,
+      sku: `${prefix}-BETA`,
+      categoryId: spray.payload.id,
+      salePrice: 100,
+    },
+  });
+  assert.equal(apple.status, 201, JSON.stringify(apple.payload));
+  assert.equal(zebra.status, 201, JSON.stringify(zebra.payload));
+  assert.equal(beta.status, 201, JSON.stringify(beta.payload));
+
+  const listed = await request("/categories?per_page=500", {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  const restIds = listed.payload.categories
+    .map((row) => row.id)
+    .filter((id) => ![wax.payload.id, color.payload.id, spray.payload.id].includes(id));
+  const reordered = await request("/categories/reorder", {
+    method: "POST",
+    headers: tenantHeaders(ownerA, businessAId),
+    body: { ids: [spray.payload.id, wax.payload.id, color.payload.id, ...restIds] },
+  });
+  assert.equal(reordered.status, 200, JSON.stringify(reordered.payload));
+
+  const products = await request(`/products?q=${encodeURIComponent(prefix)}&per_page=100`, {
+    headers: tenantHeaders(ownerA, businessAId),
+  });
+  assert.equal(products.status, 200, JSON.stringify(products.payload));
+  const names = products.payload.products.map((row) => row.name);
+  assert.deepEqual(names, [
+    `${prefix} Beta Spray`,
+    `${prefix} Zebra Wax`,
+    `${prefix} Apple Color`,
+  ]);
+  assert.equal(
+    products.payload.products[0].categorySortOrder,
+    reordered.payload.categories.find((row) => row.id === spray.payload.id).sortOrder
+  );
+});
+
 test("product CRUD + SKU uniqueness per business", async () => {
   const cat = await request("/categories", {
     method: "POST",

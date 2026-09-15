@@ -13,6 +13,7 @@ import {
   buildRateListItems,
   itemFromProduct,
   itemsFromRateList,
+  sortProductsByCategory,
 } from "../lib/rateLists";
 import { getErrorCode, getErrorMessage } from "../lib/rtkBaseQuery";
 import {
@@ -44,7 +45,7 @@ export default function RateListEditorPage() {
     per_page: 100,
   });
   const { data: categoriesData } = useGetCategoriesQuery(
-    { per_page: 100 },
+    { per_page: 500 },
     {
       skip: !can(PERMISSIONS.CATEGORIES_VIEW),
     }
@@ -59,7 +60,10 @@ export default function RateListEditorPage() {
   const [createRateList, createState] = useCreateRateListMutation();
   const [updateRateList, updateState] = useUpdateRateListMutation();
 
-  const products = useMemo(() => productsData?.products || [], [productsData]);
+  const products = useMemo(
+    () => sortProductsByCategory(productsData?.products || [], categoriesData?.categories || []),
+    [productsData, categoriesData]
+  );
   const categories = categoriesData?.categories || [];
   const selectedItems = useMemo(() => Object.values(selected), [selected]);
   const selectedCount = selectedItems.length;

@@ -1,7 +1,7 @@
-import { faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faGripVertical, faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorMessage, Field, Form, Formik } from "formik";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as Yup from "yup";
 import { Can } from "../auth/guards";
@@ -13,6 +13,7 @@ import EmptyState from "../components/ui/EmptyState";
 import { useProducts } from "../hooks/useProducts";
 import { PERMISSIONS } from "../lib/permissions";
 import { getErrorMessage } from "../lib/rtkBaseQuery";
+import { sortProductsByCategory } from "../lib/rateLists";
 import {
   useAdjustInventoryMutation,
   useCreateCategoryMutation,
@@ -22,6 +23,7 @@ import {
   useDeleteProductMutation,
   useGetCategoriesQuery,
   useGetMovementsQuery,
+  useReorderCategoriesMutation,
   useUpdateCategoryMutation,
   useUpdateProductMutation,
 } from "../services/invoiceApi";
@@ -68,7 +70,7 @@ export default function StockPage() {
   }, [search]);
 
   const { products, isLoading } = useProducts(productQueryParams);
-  const { data: categoriesData } = useGetCategoriesQuery({ per_page: 100 });
+  const { data: categoriesData } = useGetCategoriesQuery({ per_page: 500 });
   const categories = useMemo(
     () => categoriesData?.categories || [],
     [categoriesData]
@@ -84,6 +86,10 @@ export default function StockPage() {
         .includes(needle)
     );
   }, [categories, categorySearch]);
+  const orderedProducts = useMemo(
+    () => sortProductsByCategory(products, categories),
+    [products, categories]
+  );
 
   const { data: movementsData } = useGetMovementsQuery(
     selectedProductId
@@ -102,8 +108,13 @@ export default function StockPage() {
   const [createCategory, createCategoryState] = useCreateCategoryMutation();
   const [updateCategory, updateCategoryState] = useUpdateCategoryMutation();
   const [deleteCategory] = useDeleteCategoryMutation();
+  const [reorderCategories] = useReorderCategoriesMutation();
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  const [reorderingCategories, setReorderingCategories] = useState(false);
+  const [dragCategoryIndex, setDragCategoryIndex] = useState(null);
+  const [dropCategoryIndex, setDropCategoryIndex] = useState(null);
+  const dragCategoryIndexRef = useRef(null);
   const isSavingCategory = createCategoryState.isLoading || updateCategoryState.isLoading;
 
   const canOpenCategoryForm = editingCategory
@@ -116,8 +127,8 @@ export default function StockPage() {
   };
 
   const selectedProduct = useMemo(
-    () => products.find((p) => String(p.id) === String(selectedProductId)),
-    [products, selectedProductId]
+    () => orderedProducts.find((p) => String(p.id) === String(selectedProductId)),
+    [orderedProducts, selectedProductId]
   );
 
   const saveProduct = async (values, { resetForm }) => {
@@ -210,6 +221,23 @@ export default function StockPage() {
     }
   };
 
+  const moveCategoryTo = async (fromIndex, toIndex) => {
+    if (categorySearch.trim() || reorderingCategories) return;
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+    if (fromIndex >= categories.length || toIndex >= categories.length) return;
+    const next = [...categories];
+    const [row] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, row);
+    setReorderingCategories(true);
+    try {
+      await reorderCategories({ ids: next.map((category) => category.id) }).unwrap();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Could not reorder categories"));
+    } finally {
+      setReorderingCategories(false);
+    }
+  };
+
   const tabs = [
     { key: "products", label: "Products" },
     {
@@ -282,7 +310,7 @@ export default function StockPage() {
           </div>
 
           <ProductList
-            products={products}
+            products={orderedProducts}
             isLoading={isLoading}
             search={search}
             onSearchChange={setSearch}
@@ -308,7 +336,7 @@ export default function StockPage() {
                 Categories
               </h1>
               <p className="textcklr small mb-0">
-                Organize products with categories for invoices and stock.
+                Drag a row to swap order. Products and rate lists use this same order.
               </p>
             </div>
             <Can permission={PERMISSIONS.CATEGORIES_CREATE}>
@@ -360,16 +388,69 @@ export default function StockPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleCategories.map((c, index) => (
-                      <tr key={c.id}>
-                        <td className="col-index text-left">{index + 1}</td>
+                    {visibleCategories.map((c, index) => {
+                      const canDrag =
+                        can(PERMISSIONS.CATEGORIES_UPDATE) &&
+                        !reorderingCategories &&
+                        !categorySearch.trim();
+                      return (
+                      <tr
+                        key={c.id}
+                        className={`category-table-row${dragCategoryIndex === index ? " is-dragging" : ""}${
+                          dropCategoryIndex === index && dragCategoryIndex !== index
+                            ? " is-drop-target"
+                            : ""
+                        }`}
+                        draggable={canDrag}
+                        onDragStart={(event) => {
+                          if (!canDrag) return;
+                          dragCategoryIndexRef.current = index;
+                          event.dataTransfer.effectAllowed = "move";
+                          event.dataTransfer.setData("text/plain", String(index));
+                          setDragCategoryIndex(index);
+                        }}
+                        onDragOver={(event) => {
+                          if (!canDrag) return;
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                          if (dropCategoryIndex !== index) setDropCategoryIndex(index);
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          if (!canDrag) return;
+                          const fromData = Number(event.dataTransfer.getData("text/plain"));
+                          const from = Number.isInteger(fromData)
+                            ? fromData
+                            : dragCategoryIndexRef.current;
+                          if (from != null && from >= 0) moveCategoryTo(from, index);
+                          dragCategoryIndexRef.current = null;
+                          setDragCategoryIndex(null);
+                          setDropCategoryIndex(null);
+                        }}
+                        onDragEnd={() => {
+                          dragCategoryIndexRef.current = null;
+                          setDragCategoryIndex(null);
+                          setDropCategoryIndex(null);
+                        }}
+                      >
+                        <td className="col-index text-left">
+                          <span className="category-row-index">
+                            {canDrag ? (
+                              <FontAwesomeIcon icon={faGripVertical} className="category-swap-grip" />
+                            ) : null}
+                            {index + 1}
+                          </span>
+                        </td>
                         <td className="table-text-size text-left">{c.name}</td>
                         <td className="text-left">
                           <span className={`status-badge ${c.status === "active" ? "active" : "inactive"}`}>
                             {c.status}
                           </span>
                         </td>
-                        <td className="w-[1%] whitespace-nowrap pl-2 text-right">
+                        <td
+                          className="w-[1%] whitespace-nowrap pl-2 text-right"
+                          onMouseDown={(event) => event.stopPropagation()}
+                        >
                           <div className="table-actions inline-flex justify-end">
                             <Can permission={PERMISSIONS.CATEGORIES_UPDATE}>
                               <button
@@ -398,7 +479,8 @@ export default function StockPage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
@@ -425,7 +507,7 @@ export default function StockPage() {
                 <label className="input-clr mb-1">Product</label>
                 <Field as="select" name="productId" className="form-select input-settings">
                   <option value="">Select…</option>
-                  {products.map((p) => (
+                  {orderedProducts.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} (stock {p.currentStock})
                     </option>
@@ -468,7 +550,7 @@ export default function StockPage() {
                   onChange={(e) => setSelectedProductId(e.target.value)}
                 >
                   <option value="">All recent movements</option>
-                  {products.map((p) => (
+                  {orderedProducts.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>

@@ -1,4 +1,8 @@
 import {
+  applyCategorySort,
+  applyNamedCategoryOrder,
+  categoryIdsAfterVisibleMove,
+  categoryIdsAfterVisibleSwap,
   catalogSelection,
   clientOutreachMessage,
   formatBroadcastNumbers,
@@ -14,8 +18,11 @@ import {
   productDefaultPrice,
   RATE_LIST_SORT,
   rateListItemsForMessage,
+  sortProductsByCategory,
   sortRateListProducts,
   splitCatalogColumns,
+  swapAdjacent,
+  moveItem,
   toMoneyNumber,
   whatsappDigits,
   openWhatsAppWindow,
@@ -175,15 +182,15 @@ describe("clientOutreachMessage", () => {
       shareUrl: "https://example.com/store/ab",
       products: [{ name: "Archi Cap", unit: "pcs", salePrice: 45 }],
     });
-    expect(message).toContain("Assalamualaikum Adnan Face Wash Hub,");
-    expect(message).toContain("Archi ki latest rates:");
-    expect(message).toContain("Archi Cap — pcs — Rs 45");
+    expect(message).toContain("Assalamualaikum *Adnan Face Wash Hub*,");
+    expect(message).toContain("*Archi* ki latest rates");
+    expect(message).toContain("1. Archi Cap — *Rs\u00A045*");
     expect(message).toContain("Order: https://example.com/store/ab");
   });
 
   test("includes every assigned item, not a 20-item cap", () => {
     const products = Array.from({ length: 24 }, (_, index) => ({
-      name: `Item ${index + 1}`,
+      name: `Sku${index + 1} Widget`,
       unit: "pcs",
       salePrice: 10,
     }));
@@ -191,21 +198,172 @@ describe("clientOutreachMessage", () => {
       clientName: "Akram Wholesale",
       products,
     });
-    expect(message).toContain("Item 1 — pcs — Rs 10");
-    expect(message).toContain("Item 24 — pcs — Rs 10");
+    expect(message).toContain("Sku1 Widget — *Rs\u00A010*");
+    expect(message).toContain("Sku24 Widget — *Rs\u00A010*");
     expect(message).not.toContain("Aur ");
     expect(message).not.toContain("PDF");
+  });
+
+  test("groups items by category and keeps full product names", () => {
+    const message = clientOutreachMessage({
+      clientName: "Hussani Cosmetics",
+      businessName: "Tufail Traders",
+      products: [
+        { name: "Glame Fical Kit", category: "Facial", unit: "pcs", salePrice: 295 },
+        { name: "Glame Hair Remove Spray (100 ml)", category: "Hair Spray", unit: "pcs", salePrice: 165 },
+        { name: "Sabalon Hair Spray (Large)", category: "Hair Spray", unit: "pcs", salePrice: 350 },
+        { name: "Sabalon Hair Color Spray", category: "Hair Color", unit: "pcs", salePrice: 220 },
+        { name: "Sabalon Apply Color", category: "Hair Color", unit: "pcs", salePrice: 1700 },
+        { name: "White Roze Jar Large", category: "General Items", unit: "pcs", salePrice: 180 },
+      ],
+    });
+    expect(message).toContain("*Facial*");
+    expect(message).toContain("*Hair Color*");
+    expect(message).toContain("*Hair Spray*");
+    expect(message).toContain("*General Items*");
+    expect(message).toContain("• Sabalon Hair Color Spray — *Rs\u00A0220*");
+    expect(message).toContain("• Glame Hair Remove Spray (100 ml) — *Rs\u00A0165*");
+    expect(message).toContain("• Sabalon Hair Spray (Large) — *Rs\u00A0350*");
+    expect(message.indexOf("*Hair Color*")).toBeLessThan(message.indexOf("*Hair Spray*"));
+    expect(message.indexOf("*Hair Color*")).toBeLessThan(message.indexOf("Sabalon Hair Color Spray"));
+    expect(message.indexOf("Sabalon Hair Color Spray")).toBeLessThan(message.indexOf("*Hair Spray*"));
+    expect(message).not.toContain("*Glame*");
+    expect(message).not.toContain("*Sabalon*");
+    expect(message).not.toContain("pcs");
+  });
+
+  test("does not group by brand when products have no category", () => {
+    const message = clientOutreachMessage({
+      clientName: "Hafiz Cosmetics",
+      businessName: "Tufail Traders",
+      products: [
+        { name: "Glame Fical Kit", unit: "pcs", salePrice: 295 },
+        { name: "Sabalon Gel", unit: "pcs", salePrice: 200 },
+      ],
+    });
+    expect(message).toContain("1. Glame Fical Kit — *Rs\u00A0295*");
+    expect(message).toContain("2. Sabalon Gel — *Rs\u00A0200*");
+    expect(message).not.toContain("*Glame*");
+    expect(message).not.toContain("*Sabalon*");
+  });
+
+  test("orders category sections by saved category order", () => {
+    const message = clientOutreachMessage({
+      clientName: "Abdullah Cosmetics",
+      businessName: "Tufail Traders",
+      products: [
+        { name: "Sabalon Apply Color", category: "Hair Color", categorySortOrder: 2, salePrice: 1700 },
+        { name: "Glame Fical Kit", category: "Fical Kit", categorySortOrder: 0, salePrice: 295 },
+        { name: "Sabalon Gel", category: "Gel", categorySortOrder: 1, salePrice: 200 },
+      ],
+    });
+    expect(message.indexOf("*Fical Kit*")).toBeLessThan(message.indexOf("*Gel*"));
+    expect(message.indexOf("*Gel*")).toBeLessThan(message.indexOf("*Hair Color*"));
+  });
+});
+
+describe("category swap helpers", () => {
+  test("swaps adjacent section names", () => {
+    expect(swapAdjacent(["Hair Color", "Hair Spray", "Gel"], 1, -1)).toEqual([
+      "Hair Spray",
+      "Hair Color",
+      "Gel",
+    ]);
+  });
+
+  test("applies a custom section order onto the chat message", () => {
+    const products = applyNamedCategoryOrder(
+      [
+        { name: "Sabalon Apply Color", category: "Hair Color", salePrice: 1700 },
+        { name: "Sabalon Gel", category: "Gel", salePrice: 200 },
+        { name: "Glame Fical Kit", category: "Fical Kit", salePrice: 295 },
+      ],
+      ["Hair Color", "Gel", "Fical Kit"]
+    );
+    const message = clientOutreachMessage({ products });
+    expect(message.indexOf("*Hair Color*")).toBeLessThan(message.indexOf("*Gel*"));
+    expect(message.indexOf("*Gel*")).toBeLessThan(message.indexOf("*Fical Kit*"));
+  });
+
+  test("moves a section onto another row", () => {
+    expect(moveItem(["Hair Color", "Gel", "Hair Spray", "Wax"], 0, 2)).toEqual([
+      "Gel",
+      "Hair Spray",
+      "Hair Color",
+      "Wax",
+    ]);
+  });
+
+  test("keeps unused categories in place when dropping a message section", () => {
+    const ids = categoryIdsAfterVisibleMove(
+      [
+        { id: 1, name: "Tape" },
+        { id: 2, name: "Hair Color" },
+        { id: 3, name: "Soap" },
+        { id: 4, name: "Hair Spray" },
+        { id: 5, name: "Gel" },
+      ],
+      ["Hair Color", "Hair Spray", "Gel"],
+      0,
+      2
+    );
+    expect(ids).toEqual([1, 4, 3, 5, 2]);
+  });
+
+  test("keeps unused categories in place when swapping message sections", () => {
+    const ids = categoryIdsAfterVisibleSwap(
+      [
+        { id: 1, name: "Tape" },
+        { id: 2, name: "Hair Color" },
+        { id: 3, name: "Soap" },
+        { id: 4, name: "Hair Spray" },
+      ],
+      ["Hair Color", "Hair Spray"],
+      0,
+      1
+    );
+    expect(ids).toEqual([1, 4, 3, 2]);
+  });
+
+  test("stamps live category sortOrder onto products", () => {
+    const products = applyCategorySort(
+      [{ name: "Gel", category: "Gel", categoryId: 9, categorySortOrder: 80 }],
+      [{ id: 9, name: "Gel", sortOrder: 1 }]
+    );
+    expect(products[0].categorySortOrder).toBe(1);
+  });
+
+  test("sorts products by saved category order then name", () => {
+    const products = sortProductsByCategory(
+      [
+        { id: 1, name: "Zebra Wax", category: "Wax", categoryId: 3 },
+        { id: 2, name: "Apple Color", category: "Hair Color", categoryId: 1 },
+        { id: 3, name: "Beta Spray", category: "Hair Spray", categoryId: 2 },
+        { id: 4, name: "Alpha Spray", category: "Hair Spray", categoryId: 2 },
+      ],
+      [
+        { id: 2, name: "Hair Spray", sortOrder: 0 },
+        { id: 3, name: "Wax", sortOrder: 1 },
+        { id: 1, name: "Hair Color", sortOrder: 2 },
+      ]
+    );
+    expect(products.map((row) => row.name)).toEqual([
+      "Alpha Spray",
+      "Beta Spray",
+      "Zebra Wax",
+      "Apple Color",
+    ]);
   });
 });
 
 describe("formatCatalogLine", () => {
-  test("formats name, unit, and sale price", () => {
+  test("formats name and sale price without a pcs unit", () => {
     expect(formatCatalogLine({ name: "Archi Cap", unit: "pcs", salePrice: 45 })).toBe(
-      "Archi Cap — pcs — Rs 45"
+      "Archi Cap — *Rs\u00A045*"
     );
   });
 
-  test("prefers the client's custom rate", () => {
+  test("prefers the client's custom rate and keeps non-pcs units", () => {
     expect(
       formatCatalogLine({
         productName: "Soap",
@@ -213,7 +371,7 @@ describe("formatCatalogLine", () => {
         customPrice: 1300,
         salePrice: 1250,
       })
-    ).toBe("Soap — dz — Rs 1,300");
+    ).toBe("Soap (dz) — *Rs\u00A01,300*");
   });
 });
 
@@ -226,6 +384,7 @@ describe("rateListItemsForMessage", () => {
         unit: "pcs",
         customPrice: 55,
         defaultPrice: 45,
+        category: "Caps",
         soldQty: 12,
         lastBoughtAt: "2026-09-01T00:00:00.000Z",
       },
@@ -235,6 +394,7 @@ describe("rateListItemsForMessage", () => {
       customPrice: 55,
       productId: 9,
       soldQty: 12,
+      category: "Caps",
     });
   });
 });
@@ -353,9 +513,9 @@ describe("buildWhatsAppQueue", () => {
 
     expect(queue).toHaveLength(2);
     expect(queue[0].href).toContain("phone=923014180382");
-    expect(queue[0].href).toContain(encodeURIComponent("Assalamualaikum AlBaig Store,"));
+    expect(queue[0].href).toContain(encodeURIComponent("Assalamualaikum *AlBaig Store*,"));
     expect(queue[1].href).toContain("phone=923001234001");
-    expect(queue[1].href).toContain(encodeURIComponent("Assalamualaikum City Mart,"));
+    expect(queue[1].href).toContain(encodeURIComponent("Assalamualaikum *City Mart*,"));
     expect(queue[0].href).not.toBe(queue[1].href);
   });
 

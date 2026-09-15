@@ -23,6 +23,7 @@ const {
   paginateFind,
   paginateArray,
 } = require("./pagination");
+const { categoryRankMaps, sortCatalogItems, stampedSortOrder } = require("./catalogSort");
 
 function toOptionalString(value) {
   if (value == null) return null;
@@ -149,11 +150,52 @@ function publicCategory(category) {
     name: category.name,
     description: category.description || null,
     status: category.status || "active",
+    sortOrder: toOptionalNumber(category.sortOrder),
     createdBy: category.createdBy || null,
     updatedBy: category.updatedBy || null,
     createdAt: category.createdAt,
     updatedAt: category.updatedAt,
   };
+}
+
+function compareCategoryRows(a, b) {
+  const ao = toOptionalNumber(a?.sortOrder);
+  const bo = toOptionalNumber(b?.sortOrder);
+  if (ao != null && bo != null && ao !== bo) return ao - bo;
+  if (ao != null && bo == null) return -1;
+  if (ao == null && bo != null) return 1;
+  return String(a?.name || "").localeCompare(String(b?.name || ""), undefined, {
+    sensitivity: "base",
+  });
+}
+
+async function nextCategorySortOrder(db, businessId) {
+  const last = await db
+    .collection("categories")
+    .find({ businessId, sortOrder: { $type: "number" } })
+    .sort({ sortOrder: -1 })
+    .limit(1)
+    .next();
+  return (last && Number.isFinite(Number(last.sortOrder)) ? Number(last.sortOrder) : -1) + 1;
+}
+
+async function ensureCategorySortOrders(db, businessId, actorId) {
+  const all = await db.collection("categories").find({ businessId }).toArray();
+  if (!all.length || all.every((row) => toOptionalNumber(row.sortOrder) != null)) {
+    return all;
+  }
+  all.sort(compareCategoryRows);
+  const now = new Date();
+  const extra = actorId ? { updatedBy: actorId } : {};
+  await db.collection("categories").bulkWrite(
+    all.map((row, index) => ({
+      updateOne: {
+        filter: { businessId, id: row.id },
+        update: { $set: { sortOrder: index, updatedAt: now, ...extra } },
+      },
+    }))
+  );
+  return all.map((row, index) => ({ ...row, sortOrder: index }));
 }
 
 function publicVariant(variant) {
@@ -312,12 +354,15 @@ function registerCatalogRoutes({
         const q = toOptionalString(req.query.q);
         if (q) filter.name = { $regex: escapeRegex(q), $options: "i" };
 
-        const paging = parseListPagination(req.query);
-        const { rows, pagination } = await paginateFind(
-          db.collection("categories"),
-          filter,
-          { ...paging, sort: { name: 1 } }
-        );
+        const paging = parseListPagination(req.query, {
+          defaultLimit: 100,
+          maxLimit: 500,
+        });
+        const businessId = req.tenant.businessId;
+        await ensureCategorySortOrders(db, businessId, req.auth.user.id);
+        const all = await db.collection("categories").find(filter).toArray();
+        all.sort(compareCategoryRows);
+        const { rows, pagination } = paginateArray(all, paging);
         res.json({ categories: rows.map(publicCategory), pagination });
       } catch (error) {
         next(error);
@@ -356,6 +401,7 @@ function registerCatalogRoutes({
           throw new AppError(400, "VALIDATION_ERROR", "Category name is required");
         }
         const businessId = req.tenant.businessId;
+        await ensureCategorySortOrders(db, businessId, req.auth.user.id);
         const existing = await db.collection("categories").findOne({
           businessId,
           name: { $regex: `^${escapeRegex(name)}$`, $options: "i" },
@@ -374,6 +420,7 @@ function registerCatalogRoutes({
           name,
           description: toOptionalString(req.body.description),
           status: normalizeStatus(req.body.status),
+          sortOrder: await nextCategorySortOrder(db, businessId),
           createdBy: req.auth.user.id,
           updatedBy: req.auth.user.id,
           createdAt: new Date(),
@@ -381,6 +428,61 @@ function registerCatalogRoutes({
         };
         await db.collection("categories").insertOne(category);
         res.status(201).json(publicCategory(category));
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  app.post(
+    "/categories/reorder",
+    ...tenantRoute,
+    requirePermission("categories.update"),
+    async (req, res, next) => {
+      try {
+        const rawIds = Array.isArray(req.body?.ids) ? req.body.ids : [];
+        const ids = [];
+        const seen = new Set();
+        for (const value of rawIds) {
+          const id = Number(value);
+          if (!Number.isInteger(id) || id < 1 || seen.has(id)) continue;
+          seen.add(id);
+          ids.push(id);
+        }
+        if (!ids.length) {
+          throw new AppError(400, "VALIDATION_ERROR", "Category order is required");
+        }
+
+        const businessId = req.tenant.businessId;
+        const all = await db.collection("categories").find({ businessId }).toArray();
+        const byId = new Map(all.map((row) => [row.id, row]));
+        const missing = ids.filter((id) => !byId.has(id));
+        if (missing.length) {
+          throw new AppError(404, "CATEGORY_NOT_FOUND", "Category not found");
+        }
+
+        const ordered = ids.map((id) => byId.get(id));
+        const rest = all.filter((row) => !seen.has(row.id)).sort(compareCategoryRows);
+        const next = [...ordered, ...rest];
+        const now = new Date();
+        await db.collection("categories").bulkWrite(
+          next.map((row, index) => ({
+            updateOne: {
+              filter: { businessId, id: row.id },
+              update: {
+                $set: {
+                  sortOrder: index,
+                  updatedBy: req.auth.user.id,
+                  updatedAt: now,
+                },
+              },
+            },
+          }))
+        );
+
+        const saved = await db.collection("categories").find({ businessId }).toArray();
+        saved.sort(compareCategoryRows);
+        res.json({ categories: saved.map(publicCategory) });
       } catch (error) {
         next(error);
       }
@@ -531,23 +633,19 @@ function registerCatalogRoutes({
           ];
         }
 
-        const page = Math.max(1, Number(req.query.page) || 1);
-        const perPage = Math.min(
-          100,
-          Math.max(1, Number(req.query.per_page || req.query.limit) || 50)
-        );
-        const skip = (page - 1) * perPage;
-
-        let total;
-        let products;
-
+        const paging = parseListPagination(req.query, {
+          defaultLimit: 50,
+          maxLimit: 100,
+        });
+        const businessId = req.tenant.businessId;
+        const [all, categories] = await Promise.all([
+          db.collection("products").find(filter).toArray(),
+          db.collection("categories").find({ businessId }).toArray(),
+        ]);
+        const { byId, byName } = categoryRankMaps(categories);
+        let products = sortCatalogItems(all, categories);
         if (lowStock) {
-          const all = await db
-            .collection("products")
-            .find(filter)
-            .sort({ name: 1 })
-            .toArray();
-          products = all.filter((p) => {
+          products = products.filter((p) => {
             const current =
               p.currentStock != null ? Number(p.currentStock) : Number(p.stock || 0);
             const min =
@@ -556,29 +654,15 @@ function registerCatalogRoutes({
                 : Number(p.minStock || 0);
             return current < min;
           });
-          total = products.length;
-          products = products.slice(skip, skip + perPage);
-        } else {
-          [total, products] = await Promise.all([
-            db.collection("products").countDocuments(filter),
-            db
-              .collection("products")
-              .find(filter)
-              .sort({ name: 1 })
-              .skip(skip)
-              .limit(perPage)
-              .toArray(),
-          ]);
         }
-
+        const { rows, pagination } = paginateArray(products, paging);
         res.json({
-          products: products.map((p) => publicProduct(p)),
-          pagination: {
-            page,
-            per_page: perPage,
-            total,
-            pages: Math.ceil(total / perPage) || 1,
-          },
+          products: rows.map((p) =>
+            publicProduct(p, {
+              categorySortOrder: stampedSortOrder(p, byId, byName),
+            })
+          ),
+          pagination,
         });
       } catch (error) {
         next(error);

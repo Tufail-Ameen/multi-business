@@ -267,6 +267,10 @@ export const invoiceApi = createApi({
       }),
       invalidatesTags: [{ type: "Category", id: "LIST" }],
     }),
+    reorderCategories: builder.mutation({
+      query: (body) => ({ url: "/categories/reorder", method: "POST", data: body }),
+      invalidatesTags: [{ type: "Category", id: "LIST" }, { type: "Product", id: "LIST" }, { type: "RateList" }],
+    }),
     deleteCategory: builder.mutation({
       query: (id) => ({ url: `/categories/${id}`, method: "DELETE" }),
       invalidatesTags: [{ type: "Category", id: "LIST" }],
@@ -792,6 +796,7 @@ export const {
   useGetCategoriesQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
+  useReorderCategoriesMutation,
   useDeleteCategoryMutation,
   useGetMovementsQuery,
   useGetLowStockQuery,

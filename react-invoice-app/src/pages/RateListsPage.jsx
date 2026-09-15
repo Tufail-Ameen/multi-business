@@ -1,7 +1,7 @@
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { faCopy, faFilePdf, faListUl, faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Can } from "../auth/guards";
@@ -20,6 +20,7 @@ import {
   mailtoShareHref,
   openWhatsAppWindow,
   shareMessage,
+  sortProductsByCategory,
   storeUrlFromToken,
   whatsappOpenHref,
 } from "../lib/rateLists";
@@ -27,6 +28,7 @@ import { getErrorMessage } from "../lib/rtkBaseQuery";
 import {
   useCreateRateListMutation,
   useEnsureStoreLinkMutation,
+  useGetCategoriesQuery,
   useGetProductsQuery,
   useSendRateListMutation,
 } from "../services/invoiceApi";
@@ -47,7 +49,14 @@ export default function RateListsPage() {
     { status: "active", per_page: 100 },
     { skip: !can(PERMISSIONS.PRODUCTS_VIEW) }
   );
-  const catalogProducts = productsData?.products || [];
+  const { data: categoriesData } = useGetCategoriesQuery(
+    { per_page: 500 },
+    { skip: !can(PERMISSIONS.CATEGORIES_VIEW) }
+  );
+  const catalogProducts = useMemo(
+    () => sortProductsByCategory(productsData?.products || [], categoriesData?.categories || []),
+    [productsData, categoriesData]
+  );
   const savePdf = isLocalhostOrigin();
 
   const closeSend = () => {

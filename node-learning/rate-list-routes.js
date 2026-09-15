@@ -7,6 +7,7 @@ const crypto = require("crypto");
 const { nextTenantId } = require("./database");
 const { writeAuditLog, actorDisplayName } = require("./audit");
 const { parseListPagination, paginateFind } = require("./pagination");
+const { sortCatalogItems } = require("./catalogSort");
 
 const RATE_LIST_STATUSES = Object.freeze({
   DRAFT: "DRAFT",
@@ -65,9 +66,38 @@ function productSalePrice(product, variant) {
   return 0;
 }
 
+function catalogItemsFromProducts(products, categoriesById) {
+  const items = (products || [])
+    .filter((product) => product && product.status !== "archived")
+    .map((product) => {
+      const price = productSalePrice(product, null);
+      const category =
+        categoriesById instanceof Map ? categoriesById.get(product.categoryId) : null;
+      return {
+        productId: product.id,
+        productName: product.name,
+        unit: product.unit || "pcs",
+        customPrice: toMoney(price),
+        category: product.category || null,
+        categoryId: product.categoryId ?? null,
+        categorySortOrder: toOptionalNumber(category?.sortOrder),
+      };
+    })
+    .filter((item) => item.productId != null && item.productName);
+  const categories = categoriesById instanceof Map ? [...categoriesById.values()] : [];
+  return sortCatalogItems(items, categories);
+}
+
+function fingerprintRateListItems(items) {
+  return (items || [])
+    .map((item) => `${item.productId}:${item.customPrice}`)
+    .sort()
+    .join("|");
+}
+
 const SALE_INVOICE_STATUSES = new Set(["pending", "paid"]);
 
-function publicRateListItem(item, purchase) {
+function publicRateListItem(item, purchase, product, category) {
   return {
     productId: item.productId,
     variantId: item.variantId ?? null,
@@ -77,6 +107,11 @@ function publicRateListItem(item, purchase) {
     variantName: item.variantName || null,
     defaultPrice: toMoney(item.defaultPrice),
     customPrice: toMoney(item.customPrice),
+    category: product?.category || item.category || null,
+    categoryId: product?.categoryId ?? item.categoryId ?? null,
+    categorySortOrder: toOptionalNumber(
+      category?.sortOrder ?? item.categorySortOrder
+    ),
     soldQty: Number(purchase?.soldQty) || 0,
     lastBoughtAt: purchase?.lastBoughtAt || null,
   };
@@ -89,7 +124,7 @@ function purchaseForItem(item, purchases) {
 
 function publicRateList(list, extras = {}) {
   if (!list) return list;
-  const { purchases, ...rest } = extras;
+  const { purchases, productsById, categoriesById, ...rest } = extras;
   return {
     id: list.id,
     businessId: list.businessId,
@@ -100,7 +135,21 @@ function publicRateList(list, extras = {}) {
     notes: list.notes || null,
     status: list.status,
     items: Array.isArray(list.items)
-      ? list.items.map((item) => publicRateListItem(item, purchaseForItem(item, purchases)))
+      ? list.items.map((item) => {
+          const product =
+            productsById instanceof Map ? productsById.get(item.productId) : null;
+          const categoryId = product?.categoryId ?? item.categoryId;
+          const category =
+            categoriesById instanceof Map
+              ? categoriesById.get(categoryId) || categoriesById.get(Number(categoryId))
+              : null;
+          return publicRateListItem(
+            item,
+            purchaseForItem(item, purchases),
+            product,
+            category
+          );
+        })
       : [],
     itemCount: Array.isArray(list.items)
       ? list.items.length
@@ -253,6 +302,30 @@ async function loadProductsForRateList(db, list, { session } = {}) {
   return new Map(products.map((product) => [product.id, product]));
 }
 
+async function loadCategoriesById(db, businessId, ids, { session } = {}) {
+  const categoryIds = [
+    ...new Set(
+      (ids || [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isInteger(id) && id >= 1)
+    ),
+  ];
+  if (!categoryIds.length) return new Map();
+  const rows = await db
+    .collection("categories")
+    .find({ businessId, id: { $in: categoryIds } }, { session })
+    .toArray();
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+async function loadCategoriesForList(db, list, productsById, { session } = {}) {
+  const ids = [
+    ...[...(productsById?.values?.() || [])].map((product) => product.categoryId),
+    ...(list?.items || []).map((item) => item.categoryId),
+  ];
+  return loadCategoriesById(db, list.businessId, ids, { session });
+}
+
 async function loadPublicSentRateList(db, token, AppError) {
   const shareToken = toOptionalString(token);
   if (!shareToken) {
@@ -364,6 +437,11 @@ async function hydrateRateListItems(db, businessId, rawItems) {
     .find({ businessId, id: { $in: [...productIds] } })
     .toArray();
   const productById = new Map(products.map((p) => [p.id, p]));
+  const categoriesById = await loadCategoriesById(
+    db,
+    businessId,
+    products.map((product) => product.categoryId)
+  );
 
   let variantById = new Map();
   if (variantIds.size) {
@@ -420,6 +498,11 @@ async function hydrateRateListItems(db, businessId, rawItems) {
       variantName: variant ? variant.name : null,
       defaultPrice,
       customPrice,
+      category: product.category || null,
+      categoryId: product.categoryId ?? null,
+      categorySortOrder: toOptionalNumber(
+        categoriesById.get(product.categoryId)?.sortOrder
+      ),
     };
   });
 }
@@ -527,7 +610,7 @@ function registerRateListRoutes({
           );
         }
 
-        const [clients, lists] = await Promise.all([
+        const [clients, lists, products, categories] = await Promise.all([
           db
             .collection("clients")
             .find({ ...tenantScope(req), id: { $in: clientIds } })
@@ -540,14 +623,26 @@ function registerRateListRoutes({
               status: { $ne: RATE_LIST_STATUSES.ARCHIVED },
             })
             .toArray(),
+          db
+            .collection("products")
+            .find({
+              ...tenantScope(req),
+              status: { $ne: "archived" },
+            })
+            .toArray(),
+          db.collection("categories").find({ ...tenantScope(req) }).toArray(),
         ]);
         const clientById = new Map(clients.map((row) => [row.id, row]));
+        const productById = new Map(products.map((row) => [row.id, row]));
+        const categoryById = new Map(categories.map((row) => [row.id, row]));
         const listsByClient = new Map();
         for (const list of lists) {
           const bucket = listsByClient.get(list.clientId) || [];
           bucket.push(list);
           listsByClient.set(list.clientId, bucket);
         }
+        const catalogItems = catalogItemsFromProducts(products, categoryById);
+        const catalogFingerprint = fingerprintRateListItems(catalogItems);
 
         const skipped = [];
         const ready = [];
@@ -584,7 +679,23 @@ function registerRateListRoutes({
             ).getTime();
             return bTime - aTime;
           })[0];
-          if (!picked) {
+          const items = picked
+            ? (picked.items || []).map((item) => {
+                const product = productById.get(item.productId);
+                const categoryId = product?.categoryId ?? item.categoryId;
+                const category = categoryById.get(categoryId);
+                return {
+                  productId: item.productId,
+                  productName: item.productName,
+                  unit: item.unit || "pcs",
+                  customPrice: toMoney(item.customPrice),
+                  category: product?.category || item.category || null,
+                  categoryId: categoryId ?? null,
+                  categorySortOrder: toOptionalNumber(category?.sortOrder),
+                };
+              })
+            : catalogItems;
+          if (!items.length) {
             skipped.push({
               clientId,
               name: client.name || null,
@@ -593,24 +704,17 @@ function registerRateListRoutes({
             });
             continue;
           }
-          const items = (picked.items || []).map((item) => ({
-            productId: item.productId,
-            productName: item.productName,
-            unit: item.unit || "pcs",
-            customPrice: toMoney(item.customPrice),
-          }));
-          const fingerprint = items
-            .map((item) => `${item.productId}:${item.customPrice}`)
-            .sort()
-            .join("|");
           ready.push({
             clientId,
             name: client.name || null,
             phone,
-            rateListId: picked.id,
+            rateListId: picked ? picked.id : null,
+            source: picked ? "assigned" : "catalog",
             itemCount: items.length,
             items,
-            fingerprint,
+            fingerprint: picked
+              ? fingerprintRateListItems(items)
+              : catalogFingerprint,
           });
         }
 
@@ -623,6 +727,9 @@ function registerRateListRoutes({
         const groups = [...grouped.values()]
           .map((recipients) => ({
             kind: recipients.length >= 2 ? "shared" : "custom",
+            source: recipients.every((row) => row.source === "catalog")
+              ? "catalog"
+              : "assigned",
             fingerprint: recipients[0].fingerprint,
             itemCount: recipients[0].itemCount,
             items: recipients[0].items,
@@ -704,7 +811,9 @@ function registerRateListRoutes({
           req.tenant.businessId,
           list.clientId
         );
-        res.json(publicRateList(list, { purchases }));
+        const productsById = await loadProductsForRateList(db, list);
+        const categoriesById = await loadCategoriesForList(db, list, productsById);
+        res.json(publicRateList(list, { purchases, productsById, categoriesById }));
       } catch (error) {
         next(error);
       }

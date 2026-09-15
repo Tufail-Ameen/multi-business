@@ -5,27 +5,26 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Can } from "../../auth/guards";
+import { useCategorySwap } from "../../hooks/useCategorySwap";
 import { useSendClientRateList } from "../../hooks/useSendClientRateList";
 import { PERMISSIONS } from "../../lib/permissions";
 import {
   copyText,
-  formatPrice,
   isRateListSortMode,
   pickSendableRateList,
-  productDefaultPrice,
   RATE_LIST_SORT,
   RATE_LIST_SORT_OPTIONS,
   rateListSortHint,
   sortRateListProducts,
-  splitCatalogColumns,
-  toMoneyNumber,
 } from "../../lib/rateLists";
 import { getErrorMessage } from "../../lib/rtkBaseQuery";
 import {
   useGetClientRateListsQuery,
   useGetRateListQuery,
 } from "../../services/invoiceApi";
+import CategorySwapList from "./CategorySwapList";
 import WhatsAppHandoff from "./WhatsAppHandoff";
+import WhatsAppMessagePreview from "./WhatsAppMessagePreview";
 
 const EMPTY_LISTS = [];
 const SORT_STORAGE_KEY = "rateListSendSort";
@@ -46,27 +45,6 @@ function persistSortMode(mode) {
   } catch {
     /* ignore quota / private mode */
   }
-}
-
-function itemRate(product) {
-  return formatPrice(toMoneyNumber(product?.customPrice) ?? productDefaultPrice(product));
-}
-
-function RateColumn({ products, startIndex = 1 }) {
-  return (
-    <div className="send-rate-col">
-      {products.map((product, index) => (
-        <div key={`${product.name}-${startIndex + index}`} className="send-rate-row">
-          <span className="send-rate-index">{startIndex + index}</span>
-          <span className="send-rate-name" title={product.name}>
-            {product.name}
-          </span>
-          <span className="send-rate-unit">{product.unit || "pcs"}</span>
-          <span className="send-rate-price">{itemRate(product)}</span>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 export default function SendClientRateListModal({ client, onClose }) {
@@ -106,9 +84,11 @@ export default function SendClientRateListModal({ client, onClose }) {
     () => sortRateListProducts(productsFromList(list), sortMode),
     [list, productsFromList, sortMode]
   );
+  const { productsForMessage, sectionNames, moveSectionTo, moving } = useCategorySwap(
+    products,
+    listId
+  );
   const hasItems = products.length > 0;
-  const { left, right } =
-    products.length > 1 ? splitCatalogColumns(products) : { left: products, right: [] };
 
   const onSortMode = (next) => {
     setSortMode(next);
@@ -145,7 +125,7 @@ export default function SendClientRateListModal({ client, onClose }) {
     if (!list) return;
     setMessage(
       buildMessage(client, {
-        products,
+        products: productsForMessage,
         shareUrl: shareUrlFromList(list),
       })
     );
@@ -154,7 +134,7 @@ export default function SendClientRateListModal({ client, onClose }) {
     waiting,
     listId,
     list,
-    products,
+    productsForMessage,
     buildMessage,
     shareUrlFromList,
   ]);
@@ -219,7 +199,7 @@ export default function SendClientRateListModal({ client, onClose }) {
               {waiting
                 ? "Loading this shop's items…"
                 : hasItems
-                  ? `${products.length} item${products.length === 1 ? "" : "s"} for WhatsApp`
+                  ? `${products.length} item${products.length === 1 ? "" : "s"} for WhatsApp. Drag a category row to swap.`
                   : "Only assigned products go in the message."}
             </p>
           </div>
@@ -306,14 +286,13 @@ export default function SendClientRateListModal({ client, onClose }) {
               ) : null}
 
               {hasItems ? (
-                <div className="send-rate-sheet">
-                  <p className="send-rate-greeting">
-                    Assalamualaikum {client.name},
-                  </p>
-                  <div className={`send-rate-grid${right.length ? "" : " send-rate-grid-single"}`}>
-                    <RateColumn products={left} />
-                    {right.length ? <RateColumn products={right} startIndex={left.length + 1} /> : null}
-                  </div>
+                <div className="send-rate-preview-row">
+                  <WhatsAppMessagePreview message={message} />
+                  <CategorySwapList
+                    names={sectionNames}
+                    onMoveTo={moveSectionTo}
+                    disabled={moving}
+                  />
                 </div>
               ) : null}
 

@@ -34,6 +34,7 @@ export const invoiceApi = createApi({
     "RateList",
     "PurchasePrice",
     "Order",
+    "Storefront",
   ],
   endpoints: (builder) => ({
     // ---- Auth ----
@@ -76,6 +77,7 @@ export const invoiceApi = createApi({
         "Business",
         "RateList",
         "Order",
+        "Storefront",
       ],
     }),
 
@@ -710,6 +712,52 @@ export const invoiceApi = createApi({
       }),
     }),
 
+    getPublicBusinessLanding: builder.query({
+      query: (slug) => ({
+        url: `/public/businesses/${slug}`,
+        skipAuth: true,
+      }),
+      transformResponse: (response) => {
+        const landing = response?.business ? response : response;
+        if (!landing || typeof landing !== "object") return landing;
+        const featuredProducts = Array.isArray(landing.featuredProducts)
+          ? landing.featuredProducts
+          : [];
+        const categories = Array.isArray(landing.categories)
+          ? landing.categories
+          : [];
+        const storefront = landing.storefront
+          ? {
+              ...landing.storefront,
+              logoUrl: productImageSrc(landing.storefront.logoUrl) || landing.storefront.logoUrl,
+              coverUrl: productImageSrc(landing.storefront.coverUrl) || landing.storefront.coverUrl,
+              storyImageUrl:
+                productImageSrc(landing.storefront.storyImageUrl) ||
+                landing.storefront.storyImageUrl,
+              showcases: Array.isArray(landing.storefront.showcases)
+                ? landing.storefront.showcases.map((item) =>
+                    item && typeof item === "object"
+                      ? {
+                          ...item,
+                          imageUrl: productImageSrc(item.imageUrl) || item.imageUrl,
+                        }
+                      : item
+                  )
+                : [],
+            }
+          : landing.storefront;
+        return { ...landing, storefront, featuredProducts, categories };
+      },
+    }),
+    getStorefront: builder.query({
+      query: () => ({ url: "/storefront" }),
+      providesTags: ["Storefront"],
+    }),
+    updateStorefront: builder.mutation({
+      query: (body) => ({ url: "/storefront", method: "PATCH", data: body }),
+      invalidatesTags: ["Storefront"],
+    }),
+
     uploadProductImage: builder.mutation({
       query: ({ id, ...body }) => ({
         url: `/products/${id}/image`,
@@ -844,6 +892,9 @@ export const {
   usePlacePublicStoreOrderMutation,
   useGetStoreLinkQuery,
   useEnsureStoreLinkMutation,
+  useGetPublicBusinessLandingQuery,
+  useGetStorefrontQuery,
+  useUpdateStorefrontMutation,
   useUploadProductImageMutation,
   useGetOrdersQuery,
   useGetOrderQuery,

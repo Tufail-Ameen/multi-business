@@ -5,6 +5,7 @@ import {
   faCartShopping,
   faClipboardList,
   faFileInvoice,
+  faStore,
   faTags,
   faShieldHalved,
   faTruck,
@@ -45,6 +46,12 @@ export const mainNavLinks = [
     label: "Rate lists",
     icon: faTags,
     permission: PERMISSIONS.RATE_LISTS_VIEW,
+  },
+  {
+    to: "/storefront",
+    label: "Landing page",
+    icon: faStore,
+    permission: PERMISSIONS.BUSINESS_SETTINGS,
   },
   {
     to: "/vendors",
@@ -121,6 +128,7 @@ export function getNavPageTitle(pathname) {
   if (pathname.startsWith("/purchases/") && pathname !== "/purchases") {
     return "Purchase Details";
   }
+  if (pathname === "/storefront") return "Landing page";
   const all = [...mainNavLinks, ...teamNavLinks, ...platformNavLinks];
   const match = all.find((link) =>
     link.end ? pathname === link.to : pathname.startsWith(link.to)

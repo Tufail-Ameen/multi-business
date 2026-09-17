@@ -8,6 +8,8 @@ import ForbiddenPage from "../pages/ForbiddenPage";
 import InvoiceDetailPage from "../pages/InvoiceDetailPage";
 import InvoicesPage from "../pages/InvoicesPage";
 import LandingPage from "../pages/LandingPage";
+import BusinessLandingPage from "../pages/BusinessLandingPage";
+import StorefrontPage from "../pages/StorefrontPage";
 import LoginPage from "../pages/LoginPage";
 import OrdersPage from "../pages/OrdersPage";
 import OrderDetailPage from "../pages/OrderDetailPage";
@@ -40,6 +42,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/b/:slug" element={<BusinessLandingPage />} />
       <Route path="/share/rate-lists/:token" element={<PublicRateListPage />} />
       <Route path="/store/:token" element={<PublicStorePage />} />
 
@@ -227,6 +230,15 @@ export default function AppRoutes() {
             element={
               <RequirePermission permission={PERMISSIONS.AUDIT_VIEW}>
                 <AuditLogPage />
+              </RequirePermission>
+            }
+          />
+
+          <Route
+            path="/storefront"
+            element={
+              <RequirePermission permission={PERMISSIONS.BUSINESS_SETTINGS}>
+                <StorefrontPage />
               </RequirePermission>
             }
           />

@@ -26,6 +26,7 @@ const { registerPurchaseRoutes } = require("./purchase-routes");
 const { registerRateListRoutes } = require("./rate-list-routes");
 const { registerInvoiceRoutes } = require("./invoice-routes");
 const { registerOrderRoutes } = require("./order-routes");
+const { registerStorefrontRoutes } = require("./storefront-routes");
 const { parseContact } = require("./validation");
 const {
   escapeRegex,
@@ -1275,6 +1276,14 @@ function createApp({ db, mongoClient, jwtSecrets } = {}) {
     tenantRoute,
     requirePermission,
     tenantScope,
+  });
+
+  registerStorefrontRoutes({
+    app,
+    db,
+    AppError,
+    tenantRoute,
+    requirePermission,
   });
 
   registerTeamRoutes({

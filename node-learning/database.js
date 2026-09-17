@@ -49,6 +49,47 @@ async function nextTenantId(db, collectionName, businessId, { session } = {}) {
   return lastRecord.length ? Number(lastRecord[0].id) + 1 : 1;
 }
 
+function defaultStorefront() {
+  return {
+    published: false,
+    logoUrl: "",
+    coverUrl: "",
+    storyImageUrl: "",
+    primaryColor: "",
+    eyebrow: "",
+    heroTitle: "",
+    heroSubtitle: "",
+    ctaLabel: "",
+    storyTitle: "",
+    about: "",
+    highlight1Title: "",
+    highlight1Text: "",
+    highlight2Title: "",
+    highlight2Text: "",
+    highlight3Title: "",
+    highlight3Text: "",
+    whatsapp: "",
+    phone: "",
+    email: "",
+    address: "",
+    city: "",
+    instagramUrl: "",
+    facebookUrl: "",
+    showcase1Title: "",
+    showcase1Text: "",
+    showcase1ImageUrl: "",
+    showcase2Title: "",
+    showcase2Text: "",
+    showcase2ImageUrl: "",
+    showcase3Title: "",
+    showcase3Text: "",
+    showcase3ImageUrl: "",
+    showcase4Title: "",
+    showcase4Text: "",
+    showcase4ImageUrl: "",
+  };
+}
+
 function defaultBusinessSettings(businessId) {
   return {
     id: newId(),
@@ -57,6 +98,7 @@ function defaultBusinessSettings(businessId) {
     allowNegativeStock: false,
     invoicePrefix: "INV-",
     orderPrefix: "ORD-",
+    storefront: defaultStorefront(),
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -649,6 +691,7 @@ module.exports = {
   slugify,
   createUniqueSlug,
   nextTenantId,
+  defaultStorefront,
   defaultBusinessSettings,
   seedSystemRolesForBusiness,
   ensureBusinessSettings,

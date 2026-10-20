@@ -2,6 +2,10 @@
 
 POS frontend (`react-invoice-app`) and backend (`node-learning`) in one repo.
 
+## Package manager
+
+Use **npm** only. Do not use yarn (no `yarn.lock` in this repo).
+
 ## Start
 
 ```bash
